@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jewelry Scraper</title>
+  <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator.min.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Jewelry Scraper</h1>
+      <p>Enter a store URL to extract all products, prices, and categories</p>
+    </header>
+
+    <div class="search-card">
+      <div class="search-row">
+        <input
+          type="url"
+          id="url-input"
+          placeholder="https://bravojewellers.com"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button id="scrape-btn">Scrape</button>
+      </div>
+    </div>
+
+    <div id="log-card" class="log-card hidden">
+      <div class="log-header">
+        <span class="log-title">Progress</span>
+        <span id="log-spinner" class="spinner"></span>
+      </div>
+      <div id="log"></div>
+    </div>
+
+    <div id="error-card" class="error-card hidden">
+      <span id="error-msg"></span>
+    </div>
+
+    <div id="results" class="hidden">
+      <div class="stats-row">
+        <div class="stat-card">
+          <span id="stat-count" class="stat-value">—</span>
+          <span class="stat-label">Products</span>
+        </div>
+        <div class="stat-card">
+          <span id="stat-min" class="stat-value">—</span>
+          <span class="stat-label">Min Price</span>
+        </div>
+        <div class="stat-card">
+          <span id="stat-max" class="stat-value">—</span>
+          <span class="stat-label">Max Price</span>
+        </div>
+        <div class="stat-card">
+          <span id="stat-avg" class="stat-value">—</span>
+          <span class="stat-label">Avg Price</span>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-toolbar">
+          <div class="toolbar-left">
+            <select id="category-filter">
+              <option value="">All Categories</option>
+            </select>
+            <input type="text" id="search-input" placeholder="Search by name…" />
+          </div>
+          <button id="download-btn" class="btn-secondary">Download CSV</button>
+        </div>
+        <div id="table"></div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <h3>Price Distribution</h3>
+          <canvas id="price-chart"></canvas>
+        </div>
+        <div class="chart-card" id="cat-chart-card">
+          <h3>By Category</h3>
+          <canvas id="cat-chart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/tabulator-tables@6.2.1/dist/js/tabulator.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
