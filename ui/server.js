@@ -72,10 +72,13 @@ app.get('/api/scrape', (req, res) => {
       records.forEach(r => { r.price = parseFloat(r.price); });
 
       const filename = path.basename(outputPath);
+      const metaPath = outputPath + '.meta.json';
+      fs.writeFileSync(metaPath, JSON.stringify({ url, siteName }));
       send('complete', {
         products: records,
         downloadUrl: `/download/${filename}`,
         siteName,
+        url,
       });
     } catch (e) {
       send('error', { message: 'Failed to parse results: ' + e.message });
@@ -102,7 +105,12 @@ app.get('/api/results', (req, res) => {
           const lines = fs.readFileSync(filepath, 'utf8').split('\n').filter(l => l.trim());
           count = Math.max(0, lines.length - 1);
         } catch {}
-        return { filename: f, site, timestamp, count };
+        let url = null;
+        try {
+          const meta = JSON.parse(fs.readFileSync(filepath + '.meta.json', 'utf8'));
+          url = meta.url || null;
+        } catch {}
+        return { filename: f, site, url, timestamp, count };
       })
       .sort((a, b) => b.timestamp - a.timestamp);
     res.json(files);
@@ -133,6 +141,7 @@ app.delete('/api/results/:filename', (req, res) => {
   if (!fs.existsSync(file)) return res.status(404).json({ error: 'Not found' });
   try {
     fs.unlinkSync(file);
+    try { fs.unlinkSync(file + '.meta.json'); } catch {}
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

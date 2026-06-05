@@ -336,7 +336,7 @@ async function loadHistory() {
 
       item.innerHTML = `
         <div class="history-item-main">
-          <span class="history-site">${r.site}</span>
+          <span class="history-site">${r.url || r.site}</span>
           <span class="history-meta">${dateStr} · ${timeStr}</span>
         </div>
         <div class="history-item-right">
