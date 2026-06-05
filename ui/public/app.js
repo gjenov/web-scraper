@@ -2,6 +2,9 @@
 
 const urlInput    = document.getElementById('url-input');
 const scrapeBtn   = document.getElementById('scrape-btn');
+const historyCard = document.getElementById('history-card');
+const historyList = document.getElementById('history-list');
+const historyTotal = document.getElementById('history-total');
 const logCard     = document.getElementById('log-card');
 const logEl       = document.getElementById('log');
 const logSpinner  = document.getElementById('log-spinner');
@@ -207,6 +210,77 @@ function categoryChart(data) {
   });
 }
 
+// ── History ────────────────────────────────────────────────────────
+
+function renderResults(products, filename) {
+  const siteName = filename.replace(/_\d+\.csv$/, '');
+  allData = products;
+  downloadUrl = `/download/${filename}`;
+
+  renderStats(products);
+  populateCategoryFilter(products);
+  renderTable(products);
+  priceHistogram(products);
+  categoryChart(products);
+
+  catFilter.value = '';
+  searchInput.value = '';
+
+  downloadBtn.onclick = () => { window.location.href = downloadUrl; };
+  downloadBtn.textContent = `Download ${siteName}.csv`;
+
+  hide(errorCard);
+  show(resultsEl);
+}
+
+async function selectHistory(filename, itemEl) {
+  historyList.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
+  itemEl.classList.add('active');
+  try {
+    const { products } = await fetch(`/api/results/${encodeURIComponent(filename)}`).then(r => r.json());
+    renderResults(products, filename);
+  } catch (e) {
+    errorMsg.textContent = 'Failed to load: ' + e.message;
+    show(errorCard);
+  }
+}
+
+async function loadHistory() {
+  try {
+    const results = await fetch('/api/results').then(r => r.json());
+    if (!results.length) { hide(historyCard); return; }
+
+    show(historyCard);
+    historyTotal.textContent = `${results.length} file${results.length !== 1 ? 's' : ''}`;
+    historyList.innerHTML = '';
+
+    results.forEach(r => {
+      const item = document.createElement('button');
+      item.className = 'history-item';
+      item.dataset.filename = r.filename;
+
+      const date = new Date(r.timestamp);
+      const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+      item.innerHTML = `
+        <div class="history-item-main">
+          <span class="history-site">${r.site}</span>
+          <span class="history-meta">${dateStr} · ${timeStr}</span>
+        </div>
+        <div class="history-item-right">
+          <span class="history-badge">${r.count} products</span>
+          <span class="history-arrow">→</span>
+        </div>`;
+
+      item.addEventListener('click', () => selectHistory(r.filename, item));
+      historyList.appendChild(item);
+    });
+  } catch {}
+}
+
+loadHistory();
+
 // ── Scrape ─────────────────────────────────────────────────────────
 
 scrapeBtn.addEventListener('click', () => {
@@ -231,23 +305,10 @@ scrapeBtn.addEventListener('click', () => {
     es.close();
     logSpinner.classList.add('done');
 
-    const { products, downloadUrl: dl, siteName } = JSON.parse(e.data);
-    allData = products;
-    downloadUrl = dl;
-
-    renderStats(products);
-    populateCategoryFilter(products);
-    renderTable(products);
-    priceHistogram(products);
-    categoryChart(products);
-
-    catFilter.value = '';
-    searchInput.value = '';
-
-    downloadBtn.onclick = () => { window.location.href = downloadUrl; };
-    downloadBtn.textContent = `Download ${siteName}.csv`;
-
-    show(resultsEl);
+    const { products, downloadUrl: dl } = JSON.parse(e.data);
+    const filename = dl.replace('/download/', '');
+    renderResults(products, filename);
+    loadHistory();
     scrapeBtn.disabled = false;
   });
 

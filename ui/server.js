@@ -85,6 +85,46 @@ app.get('/api/scrape', (req, res) => {
   req.on('close', () => { try { proc.kill(); } catch {} });
 });
 
+app.get('/api/results', (req, res) => {
+  if (!fs.existsSync(OUTPUT_DIR)) return res.json([]);
+  try {
+    const files = fs.readdirSync(OUTPUT_DIR)
+      .filter(f => f.endsWith('.csv'))
+      .map(f => {
+        const filepath = path.join(OUTPUT_DIR, f);
+        const stat = fs.statSync(filepath);
+        const match = f.match(/^(.+)_(\d+)\.csv$/);
+        const site = match ? match[1] : f.replace('.csv', '');
+        const timestamp = match ? parseInt(match[2]) : stat.mtimeMs;
+        let count = 0;
+        try {
+          const lines = fs.readFileSync(filepath, 'utf8').split('\n').filter(l => l.trim());
+          count = Math.max(0, lines.length - 1);
+        } catch {}
+        return { filename: f, site, timestamp, count };
+      })
+      .sort((a, b) => b.timestamp - a.timestamp);
+    res.json(files);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/results/:filename', (req, res) => {
+  const filename = path.basename(req.params.filename);
+  if (!filename.endsWith('.csv')) return res.status(400).json({ error: 'Invalid file' });
+  const file = path.join(OUTPUT_DIR, filename);
+  if (!fs.existsSync(file)) return res.status(404).json({ error: 'Not found' });
+  try {
+    const csvText = fs.readFileSync(file, 'utf8');
+    const records = parse(csvText, { columns: true, skip_empty_lines: true });
+    records.forEach(r => { r.price = parseFloat(r.price); });
+    res.json({ products: records });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/download/:filename', (req, res) => {
   // Prevent path traversal
   const filename = path.basename(req.params.filename);
