@@ -34,6 +34,7 @@ app.get('/api/scrape', (req, res) => {
 
   const send = (event, data) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (res.flush) res.flush();
   };
 
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -43,7 +44,7 @@ app.get('/api/scrape', (req, res) => {
 
   send('progress', { message: `Starting scrape for ${url}` });
 
-  const proc = spawn(PYTHON, ['main.py', '--url', url, '--output', outputPath], {
+  const proc = spawn(PYTHON, ['-u', 'main.py', '--url', url, '--output', outputPath], {
     cwd: SCRAPER_DIR,
   });
 
