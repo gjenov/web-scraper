@@ -312,10 +312,30 @@ async def _scrape_async(url: str) -> list[dict]:
                     '[class*="price"], .price, span.money, .item-dis, .product-card, .product-item, [class*="per-product"]',
                     timeout=20000,
                 )
-                print("  Product elements detected — capturing HTML...")
+                print("  Product elements detected — scrolling to load all content...")
             except Exception:
                 print("  Product elements not detected — capturing whatever is rendered...")
-            await page.wait_for_timeout(1000)
+
+            # Scroll to trigger infinite-scroll loading. Stop when page height
+            # stops growing for 2 consecutive scrolls (end of content or no infinite scroll).
+            prev_height = await page.evaluate("document.body.scrollHeight")
+            scroll_count = 0
+            stale = 0
+            while scroll_count < 50 and stale < 2:
+                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                await page.wait_for_timeout(1500)
+                new_height = await page.evaluate("document.body.scrollHeight")
+                if new_height > prev_height:
+                    scroll_count += 1
+                    stale = 0
+                    prev_height = new_height
+                    print(f"  Scroll {scroll_count}: more content loaded...")
+                else:
+                    stale += 1
+
+            if scroll_count >= 50:
+                print(f"  Reached scroll limit (50) — there may be more products")
+
             html = await page.content()
             soup = BeautifulSoup(html, "lxml")
             page_results = _extract_from_soup(soup, current_url)
@@ -334,6 +354,12 @@ async def _scrape_async(url: str) -> list[dict]:
 
             # Stop paginating if this page had nothing — next link is likely a false positive
             if not page_results:
+                break
+
+            # If the page grew via infinite scroll, all content is already loaded —
+            # skip URL-based pagination entirely
+            if scroll_count > 0:
+                print(f"  Infinite scroll detected — no URL pagination needed")
                 break
 
             next_url = None
