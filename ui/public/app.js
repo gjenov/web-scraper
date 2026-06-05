@@ -19,7 +19,8 @@ const downloadBtn = document.getElementById('download-btn');
 
 let table = null;
 let priceChart = null;
-let catChart = null;
+let donutChart = null;
+let catChart   = null;
 let allData = [];
 let downloadUrl = '';
 
@@ -178,17 +179,24 @@ searchInput.addEventListener('input', applyFilters);
 
 // ── Charts ─────────────────────────────────────────────────────────
 
-const JEWEL_PALETTE = ['#d4a853', '#a78bfa', '#60a5fa', '#34d399', '#f472b6', '#fb923c'];
+const JEWEL_PALETTE = ['#d4a853', '#a78bfa', '#60a5fa', '#34d399', '#f472b6', '#fb923c', '#fb7185', '#38bdf8'];
+
+// ── Histogram ──────────────────────────────────────────────────────
 
 function priceHistogram(data) {
-  const prices = data.map(r => r.price).filter(p => !isNaN(p));
+  const prices = data.map(r => r.price).filter(p => p != null && !isNaN(p));
   if (!prices.length) return;
 
   const min = Math.min(...prices);
   const max = Math.max(...prices);
-  const BINS = 10;
+  const BINS = Math.min(12, Math.max(5, Math.floor(prices.length / 8)));
   const step = (max - min) / BINS || 1;
-  const buckets = Array.from({ length: BINS }, (_, i) => ({ label: fmt(min + i * step), count: 0 }));
+
+  const buckets = Array.from({ length: BINS }, (_, i) => {
+    const lo = min + i * step;
+    const hi = lo + step;
+    return { label: '$' + Math.round(lo).toLocaleString(), lo, hi, count: 0 };
+  });
 
   prices.forEach(p => {
     const i = Math.min(Math.floor((p - min) / step), BINS - 1);
@@ -203,18 +211,30 @@ function priceHistogram(data) {
       labels: buckets.map(b => b.label),
       datasets: [{
         data: buckets.map(b => b.count),
-        backgroundColor: 'rgba(212, 168, 83, 0.65)',
+        backgroundColor: 'rgba(212,168,83,0.55)',
         borderColor: '#d4a853',
         borderWidth: 1,
-        borderRadius: 5,
+        borderRadius: 4,
+        hoverBackgroundColor: 'rgba(212,168,83,0.85)',
       }],
     },
     options: {
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: ([item]) => {
+              const b = buckets[item.dataIndex];
+              return `${fmt(b.lo)} – ${fmt(b.hi)}`;
+            },
+            label: (item) => ` ${item.raw} product${item.raw !== 1 ? 's' : ''}`,
+          },
+        },
+      },
       scales: {
         x: {
           grid: { display: false },
-          ticks: { font: { size: 10 }, maxRotation: 40 },
+          ticks: { font: { size: 10 }, maxRotation: 35 },
         },
         y: {
           grid: { color: 'rgba(255,255,255,0.04)' },
@@ -225,34 +245,158 @@ function priceHistogram(data) {
   });
 }
 
+// ── Price segment donut ────────────────────────────────────────────
+
+const SEGMENTS = [
+  { label: 'Under $500',  test: p => p < 500 },
+  { label: '$500–$1K',    test: p => p >= 500   && p < 1000  },
+  { label: '$1K–$5K',     test: p => p >= 1000  && p < 5000  },
+  { label: '$5K–$10K',    test: p => p >= 5000  && p < 10000 },
+  { label: 'Over $10K',   test: p => p >= 10000 },
+];
+const DONUT_COLORS = ['#34d399', '#60a5fa', '#d4a853', '#f472b6', '#a78bfa'];
+
+function priceSegmentDonut(data) {
+  const prices = data.map(r => r.price).filter(p => p != null && !isNaN(p));
+  if (!prices.length) return;
+
+  const counts  = SEGMENTS.map(s => prices.filter(s.test).length);
+  const nonZero = counts.filter(c => c > 0).length;
+  const card    = document.getElementById('donut-chart-card');
+
+  if (nonZero < 2) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const total = prices.length;
+  const ctx   = document.getElementById('donut-chart').getContext('2d');
+  if (donutChart) donutChart.destroy();
+  donutChart = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: SEGMENTS.map(s => s.label),
+      datasets: [{
+        data: counts,
+        backgroundColor: DONUT_COLORS.map(c => c + 'cc'),
+        borderColor:     DONUT_COLORS,
+        borderWidth: 1.5,
+        hoverOffset: 6,
+      }],
+    },
+    options: {
+      cutout: '62%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            font: { size: 11 },
+            padding: 10,
+            color: '#8a8899',
+            boxWidth: 12,
+            filter: (item) => counts[item.index] > 0,
+          },
+        },
+        tooltip: {
+          callbacks: {
+            label: (item) => {
+              const n = item.raw;
+              const pct = ((n / total) * 100).toFixed(1);
+              return `  ${n} products (${pct}%)`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+// ── Category breakdown ─────────────────────────────────────────────
+
+const JEWEL_KEYWORDS = [
+  { label: 'Rings',      re: /\bring(s)?\b/i },
+  { label: 'Necklaces',  re: /\bnecklace|pendant/i },
+  { label: 'Earrings',   re: /\bearring/i },
+  { label: 'Bracelets',  re: /\bbracelet|bangle/i },
+  { label: 'Watches',    re: /\bwatch/i },
+  { label: 'Chains',     re: /\bchain/i },
+  { label: 'Brooches',   re: /\bbrooch/i },
+  { label: 'Charms',     re: /\bcharm/i },
+];
+
+const DIAMOND_SHAPES = ['Round','Cushion','Oval','Princess','Emerald','Radiant','Pear','Marquise','Heart','Asscher','Trillion'];
+
+function inferCategories(data) {
+  // 1. Explicit category column
+  if (data.some(r => r.category)) {
+    const cats = {};
+    data.forEach(r => { if (r.category) cats[r.category] = (cats[r.category] || 0) + 1; });
+    return cats;
+  }
+
+  // 2. Jewelry type keywords
+  const jewel = {};
+  let matched = 0;
+  data.forEach(r => {
+    for (const { label, re } of JEWEL_KEYWORDS) {
+      if (re.test(r.name || '')) { jewel[label] = (jewel[label] || 0) + 1; matched++; return; }
+    }
+  });
+  if (matched >= data.length * 0.2) return jewel;
+
+  // 3. Diamond shape keywords (loose diamond catalogues)
+  const shapes = {};
+  let shapeMatched = 0;
+  data.forEach(r => {
+    const name = r.name || '';
+    for (const s of DIAMOND_SHAPES) {
+      if (name.includes(s)) { shapes[s] = (shapes[s] || 0) + 1; shapeMatched++; return; }
+    }
+  });
+  if (shapeMatched >= data.length * 0.2) return shapes;
+
+  return {};
+}
+
 function categoryChart(data) {
-  const cats = {};
-  data.forEach(r => { if (r.category) cats[r.category] = (cats[r.category] || 0) + 1; });
-  const labels = Object.keys(cats).sort();
-  if (!labels.length) return;
+  const cats = inferCategories(data);
+  const card = document.getElementById('cat-chart-card');
+
+  const entries = Object.entries(cats).sort((a, b) => b[1] - a[1]);
+  if (entries.length < 2) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const labels = entries.map(([l]) => l);
+  const counts = entries.map(([, c]) => c);
 
   const ctx = document.getElementById('cat-chart').getContext('2d');
   if (catChart) catChart.destroy();
   catChart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: labels.map(l => l.charAt(0).toUpperCase() + l.slice(1)),
+      labels,
       datasets: [{
-        data: labels.map(l => cats[l]),
-        backgroundColor: labels.map((_, i) => JEWEL_PALETTE[i % JEWEL_PALETTE.length] + 'b0'),
+        data: counts,
+        backgroundColor: labels.map((_, i) => JEWEL_PALETTE[i % JEWEL_PALETTE.length] + '99'),
         borderColor:     labels.map((_, i) => JEWEL_PALETTE[i % JEWEL_PALETTE.length]),
         borderWidth: 1,
-        borderRadius: 5,
+        borderRadius: 4,
       }],
     },
     options: {
-      plugins: { legend: { display: false } },
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (item) => ` ${item.raw} products`,
+          },
+        },
+      },
       scales: {
-        x: { grid: { display: false } },
-        y: {
+        x: {
           grid: { color: 'rgba(255,255,255,0.04)' },
           ticks: { precision: 0 },
         },
+        y: { grid: { display: false } },
       },
     },
   });
@@ -269,6 +413,7 @@ function renderResults(products, filename) {
   populateCategoryFilter(products);
   renderTable(products);
   priceHistogram(products);
+  priceSegmentDonut(products);
   categoryChart(products);
 
   catFilter.value = '';

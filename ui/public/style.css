@@ -596,9 +596,15 @@ header p {
 
 /* ── Charts ──────────────────────────────────────────────────────── */
 
-.charts-row {
+.charts-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.charts-bottom-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 5fr 7fr;
   gap: 16px;
 }
 
@@ -619,7 +625,14 @@ header p {
   margin-bottom: 18px;
 }
 
-.chart-card canvas { max-height: 220px; }
+/* Histogram: full width, moderate height */
+.charts-section > .chart-card canvas { max-height: 200px; }
+
+/* Donut: give it room for the legend below */
+#donut-chart-card canvas { max-height: 240px; }
+
+/* Category: horizontal bars, height scales with category count */
+#cat-chart-card canvas { max-height: 260px; }
 
 /* ── Utility ─────────────────────────────────────────────────────── */
 
@@ -631,6 +644,6 @@ header p {
   body { padding: 24px 12px 80px; }
   header h1 { font-size: 1.8rem; }
   .stats-row { grid-template-columns: repeat(2, 1fr); }
-  .charts-row { grid-template-columns: 1fr; }
+  .charts-bottom-row { grid-template-columns: 1fr; }
   .search-row { flex-direction: column; }
 }
