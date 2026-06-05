@@ -34,7 +34,8 @@ _JUNK_NAME_RE = re.compile(
     r'\b(checkout|shopping cart|have a question|use code|ends soon|'
     r'gifts? under|free shipping|purchase over|subscribe|newsletter|'
     r'sign up|log in|sign in|my account|view all|see all|load more|'
-    r'add to cart|add to bag|sold out|out of stock|wishlist)\b',
+    r'add to cart|add to bag|sold out|out of stock|wishlist|'
+    r'sweepstakes|gift card|promo code|discount|coupon)\b',
     re.IGNORECASE,
 )
 
@@ -49,6 +50,9 @@ def _is_valid_product(name: str, price: float, url: str = "") -> bool:
     if price <= 0:
         return False
     if not name or len(name) > 150:
+        return False
+    # Catch UI text like "...Details", "...more", "...See All"
+    if name.startswith("...") or name.startswith("…"):
         return False
     if _JUNK_NAME_RE.search(name):
         return False
@@ -241,9 +245,24 @@ async def _scrape_async(url: str) -> list[dict]:
         while current_url and current_url not in visited:
             visited.add(current_url)
             print(f"Loading page {page_num} (browser rendering)...")
-            # networkidle ensures JS-rendered product grids are present
-            await page.goto(current_url, wait_until="networkidle", timeout=60000)
-            await page.wait_for_timeout(2000)
+            try:
+                # "load" waits for all scripts — product grids rendered at this point.
+                # Avoid networkidle: BE and many sites fire continuous analytics forever.
+                await page.goto(current_url, wait_until="load", timeout=30000)
+            except Exception:
+                pass
+
+            # Wait for price/product content; catches sites that load products via
+            # a post-load async API call (gives them up to 20s to appear)
+            try:
+                await page.wait_for_selector(
+                    '[class*="price"], .price, span.money, .item-dis, .product-card, .product-item',
+                    timeout=20000,
+                )
+                print("  Product elements detected — capturing HTML...")
+            except Exception:
+                print("  Product elements not detected — capturing whatever is rendered...")
+            await page.wait_for_timeout(1000)
             html = await page.content()
             soup = BeautifulSoup(html, "lxml")
             page_results = _extract_from_soup(soup, current_url)

@@ -10,7 +10,7 @@ from utils.price import normalize_price
 
 
 def _normalize_url(url: str) -> str:
-    url = url.strip().rstrip("/")
+    url = url.strip()
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
     return url
@@ -20,8 +20,7 @@ def _resolve_url(url: str) -> str:
     """Follow redirects and return the final canonical URL."""
     try:
         resp = requests.head(url, allow_redirects=True, timeout=10)
-        final = resp.url.rstrip("/")
-        return final
+        return resp.url
     except Exception:
         return url
 
