@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 from urllib.parse import urlparse
 
-from strategies import shopify, generic, webflow
+from strategies import shopify, generic, webflow, magento
 from utils.price import normalize_price
 
 
@@ -48,6 +48,16 @@ def _detect_platform(url: str) -> tuple[str, str]:
         if "data-wf-domain" in html or "webflow" in html.lower():
             return "webflow", resolved
 
+        # Magento: pub/static paths, Magento_ module names, or mage/ JS modules
+        if (
+            "/pub/static/version" in html
+            or "Magento_" in html
+            or "requirejs-config.js" in html
+            or '"mage/' in html
+            or "'mage/" in html
+        ):
+            return "magento", resolved
+
     except Exception:
         pass
 
@@ -74,6 +84,8 @@ def run(url: str, output_path: str | None) -> None:
         records = shopify.scrape(url)
     elif platform == "webflow":
         records = webflow.scrape(url)
+    elif platform == "magento":
+        records = magento.scrape(url)
     else:
         records = generic.scrape(url)
 
