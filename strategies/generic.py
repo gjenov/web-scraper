@@ -1,4 +1,5 @@
 import re
+import json
 import asyncio
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
@@ -6,6 +7,8 @@ from playwright.async_api import async_playwright
 
 from utils.price import normalize_price
 
+
+# ── URL / name helpers ─────────────────────────────────────────────
 
 def _make_absolute(href: str, base_url: str) -> str:
     if not href:
@@ -25,66 +28,115 @@ def _find_url(card, base_url: str) -> str:
     return _make_absolute(link.get("href", ""), base_url)
 
 
-_PRICE_RE = re.compile(r'[\$£€][\d,]+(?:\.\d{2})?|\d+(?:,\d{3})*(?:\.\d{2})?\s*(?:AUD|USD|NZD|GBP|EUR)', re.IGNORECASE)
+# ── Junk filters ───────────────────────────────────────────────────
+
+_JUNK_NAME_RE = re.compile(
+    r'\b(checkout|shopping cart|have a question|use code|ends soon|'
+    r'gifts? under|free shipping|purchase over|subscribe|newsletter|'
+    r'sign up|log in|sign in|my account|view all|see all|load more|'
+    r'add to cart|add to bag|sold out|out of stock|wishlist)\b',
+    re.IGNORECASE,
+)
+
+_JUNK_URL_RE = re.compile(
+    r'/(cart|checkout|promo-codes?|gifts?/under|subscribe|account|login|'
+    r'wishlist|compare|faq|contact|about|blog|shipping|returns|offers?)(/|$)',
+    re.IGNORECASE,
+)
+
+
+def _is_valid_product(name: str, price: float, url: str = "") -> bool:
+    if price <= 0:
+        return False
+    if not name or len(name) > 150:
+        return False
+    if _JUNK_NAME_RE.search(name):
+        return False
+    if url and _JUNK_URL_RE.search(url):
+        return False
+    return True
+
+
+# ── JSON-LD extraction (highest fidelity) ─────────────────────────
+
+def _extract_json_ld(soup: BeautifulSoup, base_url: str) -> list[dict]:
+    results = []
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(script.string or "")
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        candidates = []
+        if isinstance(data, list):
+            candidates = data
+        elif isinstance(data, dict):
+            t = data.get("@type", "")
+            if t == "ItemList":
+                candidates = [e.get("item", e) for e in data.get("itemListElement", [])]
+            else:
+                candidates = [data]
+
+        for item in candidates:
+            if not isinstance(item, dict):
+                continue
+            if item.get("@type") not in ("Product", "IndividualProduct"):
+                continue
+
+            name = item.get("name", "").strip()
+            if not name:
+                continue
+
+            offers = item.get("offers") or {}
+            if isinstance(offers, list):
+                offers = offers[0] if offers else {}
+
+            price_raw = offers.get("price") or offers.get("lowPrice") or item.get("price")
+            try:
+                price = float(str(price_raw).replace(",", ""))
+            except (TypeError, ValueError):
+                continue
+
+            url = item.get("url", "") or offers.get("url", "")
+            if url and not url.startswith("http"):
+                url = _make_absolute(url, base_url)
+
+            if _is_valid_product(name, price, url):
+                results.append({"name": name, "price": price, "url": url})
+
+    return results
+
+
+# ── CSS-based extraction ───────────────────────────────────────────
+
+_PRICE_RE = re.compile(
+    r'[\$£€][\d,]+(?:\.\d{2})?|\d+(?:,\d{3})*(?:\.\d{2})?\s*(?:AUD|USD|NZD|GBP|EUR)',
+    re.IGNORECASE,
+)
 
 _NEXT_PAGE_TEXTS = re.compile(r'next|›|»|load more', re.IGNORECASE)
 
 _PRODUCT_SELECTORS = [
-    # Common product card containers across WooCommerce, generic themes
     "li.product",
     "div.product",
     ".product-item",
     ".product-card",
+    ".product-tile",
+    ".prod-item",
+    ".product__item",
     "[data-product-id]",
+    "[data-product]",
     ".grid-item",
     ".collection-item",
+    "article.product",
+    "[class*='ProductCard']",
+    "[class*='product-card']",
+    "[class*='ProductItem']",
+    "[class*='product-tile']",
 ]
 
 _TITLE_SELECTORS = ["h2", "h3", "h4", ".product-title", ".product-name", ".item-title", "a"]
 _PRICE_SELECTORS = [".price", ".product-price", ".amount", "span.money", "[class*='price']"]
-
-
-def _extract_from_soup(soup: BeautifulSoup, base_url: str = "") -> list[dict]:
-    results = []
-
-    # Try structured product containers first
-    for selector in _PRODUCT_SELECTORS:
-        cards = soup.select(selector)
-        if len(cards) >= 3:
-            for card in cards:
-                name = _find_title(card)
-                price_raw = _find_price_text(card)
-                price = normalize_price(price_raw) if price_raw else None
-                if name and price is not None:
-                    results.append({"name": name, "price": price, "url": _find_url(card, base_url)})
-            if results:
-                return results
-
-    # Fallback: scan all price-like text and grab nearest sibling heading
-    for el in soup.find_all(string=_PRICE_RE):
-        price = normalize_price(el.strip())
-        if price is None:
-            continue
-        parent = el.parent
-        name = None
-        product_url = ""
-        for ancestor in [parent] + list(parent.parents)[:4]:
-            heading = ancestor.find(re.compile(r'^h[2-5]$'))
-            if heading and heading.get_text(strip=True):
-                name = heading.get_text(strip=True)
-                link = ancestor.find("a", href=True)
-                if link:
-                    product_url = _make_absolute(link.get("href", ""), base_url)
-                break
-            link = ancestor.find("a")
-            if link and link.get_text(strip=True):
-                name = link.get_text(strip=True)
-                product_url = _make_absolute(link.get("href", ""), base_url)
-                break
-        if name:
-            results.append({"name": name, "price": price, "url": product_url})
-
-    return results
 
 
 def _find_title(card) -> str | None:
@@ -104,10 +156,58 @@ def _find_price_text(card) -> str | None:
             text = el.get_text(strip=True)
             if text:
                 return text
-    # Fallback: find any price-like text in card
     match = _PRICE_RE.search(card.get_text())
     return match.group(0) if match else None
 
+
+def _extract_from_soup(soup: BeautifulSoup, base_url: str = "") -> list[dict]:
+    # 1. JSON-LD structured data — most reliable
+    results = _extract_json_ld(soup, base_url)
+    if results:
+        return results
+
+    # 2. Structured product card containers
+    for selector in _PRODUCT_SELECTORS:
+        cards = soup.select(selector)
+        if len(cards) >= 3:
+            for card in cards:
+                name = _find_title(card)
+                price_raw = _find_price_text(card)
+                price = normalize_price(price_raw) if price_raw else None
+                url = _find_url(card, base_url)
+                if name and price is not None and _is_valid_product(name, price, url):
+                    results.append({"name": name, "price": price, "url": url})
+            if results:
+                return results
+
+    # 3. Last resort: regex scan — strictly validated
+    for el in soup.find_all(string=_PRICE_RE):
+        price = normalize_price(el.strip())
+        if price is None or price <= 0:
+            continue
+        parent = el.parent
+        name = None
+        product_url = ""
+        for ancestor in [parent] + list(parent.parents)[:3]:
+            heading = ancestor.find(re.compile(r'^h[2-5]$'))
+            if heading and heading.get_text(strip=True):
+                name = heading.get_text(strip=True)
+                link = ancestor.find("a", href=True)
+                if link:
+                    product_url = _make_absolute(link.get("href", ""), base_url)
+                break
+            link = ancestor.find("a")
+            if link and link.get_text(strip=True):
+                name = link.get_text(strip=True)
+                product_url = _make_absolute(link.get("href", ""), base_url)
+                break
+        if name and _is_valid_product(name, price, product_url):
+            results.append({"name": name, "price": price, "url": product_url})
+
+    return results
+
+
+# ── Async Playwright driver ────────────────────────────────────────
 
 async def _scrape_async(url: str) -> list[dict]:
     results = []
@@ -127,14 +227,14 @@ async def _scrape_async(url: str) -> list[dict]:
         current_url = url
         while current_url and current_url not in visited:
             visited.add(current_url)
-            await page.goto(current_url, wait_until="load", timeout=60000)
+            # networkidle ensures JS-rendered product grids are present
+            await page.goto(current_url, wait_until="networkidle", timeout=60000)
             await page.wait_for_timeout(2000)
             html = await page.content()
             soup = BeautifulSoup(html, "lxml")
             page_results = _extract_from_soup(soup, current_url)
             results.extend(page_results)
 
-            # Find next page link
             next_url = None
             for link in soup.find_all("a", string=_NEXT_PAGE_TEXTS):
                 href = link.get("href", "")

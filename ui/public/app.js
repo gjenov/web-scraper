@@ -233,14 +233,37 @@ function renderResults(products, filename) {
   show(resultsEl);
 }
 
+let activeHistoryFile = null;
+
 async function selectHistory(filename, itemEl) {
   historyList.querySelectorAll('.history-item').forEach(el => el.classList.remove('active'));
   itemEl.classList.add('active');
+  activeHistoryFile = filename;
   try {
     const { products } = await fetch(`/api/results/${encodeURIComponent(filename)}`).then(r => r.json());
     renderResults(products, filename);
   } catch (e) {
     errorMsg.textContent = 'Failed to load: ' + e.message;
+    show(errorCard);
+  }
+}
+
+async function deleteHistory(filename, itemEl) {
+  try {
+    await fetch(`/api/results/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+    itemEl.remove();
+    if (filename === activeHistoryFile) {
+      hide(resultsEl);
+      activeHistoryFile = null;
+    }
+    const remaining = historyList.querySelectorAll('.history-item').length;
+    if (remaining === 0) {
+      hide(historyCard);
+    } else {
+      historyTotal.textContent = `${remaining} file${remaining !== 1 ? 's' : ''}`;
+    }
+  } catch (e) {
+    errorMsg.textContent = 'Failed to delete: ' + e.message;
     show(errorCard);
   }
 }
@@ -255,7 +278,7 @@ async function loadHistory() {
     historyList.innerHTML = '';
 
     results.forEach(r => {
-      const item = document.createElement('button');
+      const item = document.createElement('div');
       item.className = 'history-item';
       item.dataset.filename = r.filename;
 
@@ -271,8 +294,13 @@ async function loadHistory() {
         <div class="history-item-right">
           <span class="history-badge">${r.count} products</span>
           <span class="history-arrow">→</span>
+          <button class="history-delete" title="Delete" aria-label="Delete">✕</button>
         </div>`;
 
+      item.querySelector('.history-delete').addEventListener('click', (e) => {
+        e.stopPropagation();
+        deleteHistory(r.filename, item);
+      });
       item.addEventListener('click', () => selectHistory(r.filename, item));
       historyList.appendChild(item);
     });

@@ -254,6 +254,33 @@ header p {
   transform: translateX(2px);
 }
 
+.history-delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-family: inherit;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.history-item:hover .history-delete { opacity: 1; }
+
+.history-delete:hover {
+  color: var(--danger);
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.3);
+  opacity: 1;
+}
+
 /* ── Progress log ────────────────────────────────────────────────── */
 
 .log-card {

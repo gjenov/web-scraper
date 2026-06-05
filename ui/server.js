@@ -125,6 +125,19 @@ app.get('/api/results/:filename', (req, res) => {
   }
 });
 
+app.delete('/api/results/:filename', (req, res) => {
+  const filename = path.basename(req.params.filename);
+  if (!filename.endsWith('.csv')) return res.status(400).json({ error: 'Invalid file' });
+  const file = path.join(OUTPUT_DIR, filename);
+  if (!fs.existsSync(file)) return res.status(404).json({ error: 'Not found' });
+  try {
+    fs.unlinkSync(file);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/download/:filename', (req, res) => {
   // Prevent path traversal
   const filename = path.basename(req.params.filename);
