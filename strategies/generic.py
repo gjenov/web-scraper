@@ -330,6 +330,133 @@ def _cffi_fetch(url: str) -> str:
         return ""
 
 
+# ── Hybris / SAP Commerce GLP (Gemstone Listing Page) API ─────────
+# Some jewellers (e.g. Shane Co) run SAP Commerce with a custom GLP
+# JSON API at /searchPageData/glpCategories/. Detect via data-url attr.
+
+def _try_hybris_glp_api(soup: BeautifulSoup, origin_url: str) -> list[dict]:
+    el = soup.find(attrs={"data-url": re.compile(r"glpCategories", re.IGNORECASE)})
+    if not el:
+        return []
+
+    api_path = el.get("data-url", "")
+    p = urlparse(origin_url)
+    api_base = f"{p.scheme}://{p.netloc}{api_path}"
+    sep = "&" if "?" in api_base else "?"
+
+    try:
+        from curl_cffi import requests as cffi_req
+    except ImportError:
+        print("  curl-cffi not installed — cannot fetch Hybris GLP API")
+        return []
+
+    _api_headers = {
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": origin_url,
+        "X-Requested-With": "XMLHttpRequest",
+    }
+
+    try:
+        r0 = cffi_req.get(
+            f"{api_base}{sep}loadBulk=true&fetchTotal=true",
+            impersonate="chrome110", timeout=30, headers=_api_headers,
+        )
+        if r0.status_code != 200:
+            print(f"  Hybris GLP API: status {r0.status_code}")
+            return []
+        first_data = r0.json()
+    except Exception as e:
+        print(f"  Hybris GLP API error: {e}")
+        return []
+
+    pag = first_data.get("pagination", {})
+    total_pages = int(pag.get("numberOfPages", 1))
+    total_items = int(pag.get("totalNumberOfResults", 0))
+    print(f"  Hybris GLP API: {total_items} items across {total_pages} pages")
+
+    results = []
+    seen_codes: set[str] = set()
+
+    def _parse_glp_page(data: dict) -> None:
+        for item in data.get("results", []):
+            code = item.get("code", "")
+            if not code or code in seen_codes:
+                continue
+            seen_codes.add(code)
+
+            parts = []
+            shape = item.get("gemstoneShape", "")
+            if shape:
+                parts.append(shape)
+
+            color_type = item.get("gemstoneColor", "")
+            if "Lab" in color_type:
+                parts.append("Lab Diamond")
+            elif "Diamond" in color_type:
+                parts.append("Diamond")
+            elif color_type:
+                parts.append(color_type)
+
+            carat = item.get("gemstoneCaratWeight", "")
+            if carat:
+                parts.append(carat)
+
+            color = item.get("color", "")
+            if color:
+                parts.append(f"Color {color}")
+
+            clarity = item.get("clarity", "")
+            if clarity:
+                parts.append(clarity)
+
+            cut = item.get("cut", "")
+            if cut and cut.lower() not in ("none", ""):
+                parts.append(cut)
+
+            cert = item.get("certLab", "")
+            if cert:
+                parts.append(f"({cert})")
+
+            name = " ".join(parts).strip() or code
+
+            price = item.get("gemstonePrice")
+            if price is None:
+                price = normalize_price(item.get("formattedPrice", "") or "")
+            try:
+                price = float(price)
+            except (TypeError, ValueError):
+                continue
+            if price <= 0:
+                continue
+
+            pdp = item.get("pdpUrl", "")
+            prod_url = _make_absolute(pdp, origin_url) if pdp else ""
+            results.append({"name": name, "price": price, "url": prod_url})
+
+    _parse_glp_page(first_data)
+    print(f"  Page 1/{total_pages}: {len(results)} products so far")
+
+    for page_num in range(1, min(total_pages, 500)):
+        try:
+            r = cffi_req.get(
+                f"{api_base}{sep}loadBulk=true&page={page_num}",
+                impersonate="chrome110", timeout=30, headers=_api_headers,
+            )
+            if r.status_code != 200:
+                print(f"  Page {page_num + 1}: status {r.status_code}, stopping")
+                break
+            _parse_glp_page(r.json())
+            if (page_num + 1) % 25 == 0 or page_num + 1 == total_pages:
+                print(f"  Page {page_num + 1}/{total_pages}: {len(results)} products so far")
+        except Exception as e:
+            print(f"  Page {page_num + 1} error: {e}")
+            break
+
+    print(f"  Hybris GLP: {len(results)} unique products found")
+    return results
+
+
 # ── Async Playwright driver ────────────────────────────────────────
 
 _MAX_PAGES = 20
@@ -402,6 +529,14 @@ async def _scrape_async(url: str) -> list[dict]:
                 html = _cffi_fetch(current_url)
 
             soup = BeautifulSoup(html, "lxml")
+
+            # Hybris GLP API (e.g. Shane Co) — paginate the JSON API directly
+            glp_results = _try_hybris_glp_api(soup, current_url)
+            if glp_results:
+                results.extend(glp_results)
+                print(f"  Hybris GLP subtotal: {len(results)} products total")
+                break
+
             page_results = _extract_from_soup(soup, current_url)
 
             # Detect client-side-only pagination: if every product on this page
