@@ -9,6 +9,7 @@ const logCard     = document.getElementById('log-card');
 const logEl       = document.getElementById('log');
 const logSpinner  = document.getElementById('log-spinner');
 const logTimer    = document.getElementById('log-timer');
+const logCount    = document.getElementById('log-count');
 const errorCard   = document.getElementById('error-card');
 const errorMsg    = document.getElementById('error-msg');
 const resultsEl   = document.getElementById('results');
@@ -53,12 +54,30 @@ const fmt = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, m
 function show(el)  { el.classList.remove('hidden'); }
 function hide(el)  { el.classList.add('hidden'); }
 
+// Patterns that carry a running product total
+const COUNT_RE = [
+  /subtotal:\s*(\d+)\s+products?\s+total/i,   // generic: "Page N subtotal: 25 products total"
+  /running total:\s*(\d+)/i,                   // shopify: "(running total: 42)"
+  /^Done\s*[—-]\s*(\d+)\s+products?\s+saved/i, // final:   "Done — 21 products saved"
+];
+
+function updateCount(msg) {
+  for (const re of COUNT_RE) {
+    const m = msg.match(re);
+    if (m) {
+      logCount.textContent = `${m[1]} found`;
+      return;
+    }
+  }
+}
+
 function appendLog(msg, isErr = false) {
   const div = document.createElement('div');
   div.className = 'line' + (isErr ? ' err' : '');
   div.textContent = msg;
   logEl.appendChild(div);
   logEl.scrollTop = logEl.scrollHeight;
+  updateCount(msg);
 }
 
 // ── Stats ──────────────────────────────────────────────────────────
@@ -340,6 +359,7 @@ scrapeBtn.addEventListener('click', () => {
   hide(errorCard);
   hide(resultsEl);
   logEl.innerHTML = '';
+  logCount.textContent = '';
   logSpinner.classList.remove('done');
   show(logCard);
   startTimer();

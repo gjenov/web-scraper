@@ -318,11 +318,28 @@ header p {
   text-transform: uppercase;
 }
 
+.log-header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.log-count {
+  font-size: 0.78rem;
+  color: var(--gold);
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+}
+
+.log-count:empty { display: none; }
+
 .log-timer {
   font-size: 0.8rem;
   color: var(--gold);
   opacity: 0.7;
   letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
   min-width: 36px;
   text-align: right;
 }
