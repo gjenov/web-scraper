@@ -319,6 +319,16 @@ async def _scrape_async(url: str) -> list[dict]:
             html = await page.content()
             soup = BeautifulSoup(html, "lxml")
             page_results = _extract_from_soup(soup, current_url)
+
+            # Detect client-side-only pagination: if every product on this page
+            # is already in results, the server is ignoring the page parameter
+            if page_num > 1 and page_results:
+                seen = {(r["name"], r["price"]) for r in results}
+                truly_new = [r for r in page_results if (r["name"], r["price"]) not in seen]
+                if not truly_new:
+                    print(f"  Page {page_num} identical to previous pages — pagination is client-side, stopping")
+                    break
+
             results.extend(page_results)
             print(f"  Page {page_num} subtotal: {len(results)} products total")
 
