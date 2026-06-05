@@ -273,6 +273,42 @@ def _extract_from_soup(soup: BeautifulSoup, base_url: str = "") -> list[dict]:
     return results
 
 
+# ── Bot-detection helpers ──────────────────────────────────────────
+
+_BLOCK_KEYWORDS = ("access denied", "captcha", "robot check",
+                   "datadome", "please verify", "challenge")
+
+def _is_blocked(html: str) -> bool:
+    if len(html) < 5000:
+        return True
+    lower = html[:2000].lower()
+    return any(kw in lower for kw in _BLOCK_KEYWORDS)
+
+
+def _cffi_fetch(url: str) -> str:
+    try:
+        from curl_cffi import requests as cffi_req
+    except ImportError:
+        print("  curl-cffi not installed — run: pip install curl-cffi")
+        return ""
+    try:
+        resp = cffi_req.get(
+            url, impersonate="chrome110", timeout=30,
+            headers={
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+        )
+        if resp.status_code == 200 and len(resp.text) > 5000:
+            print(f"  curl-cffi: {len(resp.text):,} bytes received")
+            return resp.text
+        print(f"  curl-cffi: status {resp.status_code}")
+        return ""
+    except Exception as e:
+        print(f"  curl-cffi error: {e}")
+        return ""
+
+
 # ── Async Playwright driver ────────────────────────────────────────
 
 _MAX_PAGES = 20
@@ -337,6 +373,13 @@ async def _scrape_async(url: str) -> list[dict]:
                 print(f"  Reached scroll limit (50) — there may be more products")
 
             html = await page.content()
+
+            # If Playwright was blocked (Akamai, Cloudflare, DataDome) the response
+            # is tiny. Fall back to curl-cffi which mimics Chrome's TLS fingerprint.
+            if _is_blocked(html):
+                print("  Browser blocked by bot protection — trying curl-cffi...")
+                html = _cffi_fetch(current_url)
+
             soup = BeautifulSoup(html, "lxml")
             page_results = _extract_from_soup(soup, current_url)
 
