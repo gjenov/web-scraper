@@ -285,25 +285,46 @@ def _is_blocked(html: str) -> bool:
     return any(kw in lower for kw in _BLOCK_KEYWORDS)
 
 
+_SFCC_SHOWING_RE = re.compile(r"[Ss]howing\s+[\d,]+\s+of\s+([\d,]+)\s+item", re.IGNORECASE)
+
+
 def _cffi_fetch(url: str) -> str:
     try:
         from curl_cffi import requests as cffi_req
     except ImportError:
         print("  curl-cffi not installed — run: pip install curl-cffi")
         return ""
+
+    _headers = {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
     try:
-        resp = cffi_req.get(
-            url, impersonate="chrome110", timeout=30,
-            headers={
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-            },
-        )
-        if resp.status_code == 200 and len(resp.text) > 5000:
-            print(f"  curl-cffi: {len(resp.text):,} bytes received")
-            return resp.text
-        print(f"  curl-cffi: status {resp.status_code}")
-        return ""
+        resp = cffi_req.get(url, impersonate="chrome110", timeout=30, headers=_headers)
+        if resp.status_code != 200 or len(resp.text) < 5000:
+            print(f"  curl-cffi: status {resp.status_code}")
+            return ""
+
+        html = resp.text
+        print(f"  curl-cffi: {len(html):,} bytes received")
+
+        # Salesforce Commerce Cloud (Demandware) sites support ?sz=N to return all
+        # products in one response. Detect and refetch with the full catalogue size.
+        if "/on/demandware" in html:
+            m = _SFCC_SHOWING_RE.search(html)
+            if m:
+                total = int(m.group(1).replace(",", ""))
+                if total > 24:
+                    sep = "&" if "?" in url else "?"
+                    full_url = f"{url}{sep}sz={total}"
+                    print(f"  SFCC detected — fetching all {total} products...")
+                    r2 = cffi_req.get(full_url, impersonate="chrome110", timeout=60, headers=_headers)
+                    if r2.status_code == 200 and len(r2.text) > len(html):
+                        print(f"  Full catalogue: {len(r2.text):,} bytes")
+                        return r2.text
+
+        return html
     except Exception as e:
         print(f"  curl-cffi error: {e}")
         return ""
