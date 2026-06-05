@@ -18,7 +18,11 @@ let catChart = null;
 let allData = [];
 let downloadUrl = '';
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Chart.js dark theme defaults ───────────────────────────────────
+Chart.defaults.color = '#8a8899';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.05)';
+
+// ── Helpers ────────────────────────────────────────────────────────
 
 const fmt = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -33,7 +37,7 @@ function appendLog(msg, isErr = false) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-// ── Stats ──────────────────────────────────────────────────────────────────
+// ── Stats ──────────────────────────────────────────────────────────
 
 function renderStats(data) {
   const prices = data.map(r => r.price).filter(p => !isNaN(p));
@@ -45,7 +49,7 @@ function renderStats(data) {
     : '—';
 }
 
-// ── Table ──────────────────────────────────────────────────────────────────
+// ── Table ──────────────────────────────────────────────────────────
 
 function buildColumns(data) {
   const hasCategory = data.some(r => r.category);
@@ -82,7 +86,7 @@ function renderTable(data) {
   });
 }
 
-// ── Filters ────────────────────────────────────────────────────────────────
+// ── Filters ────────────────────────────────────────────────────────
 
 function populateCategoryFilter(data) {
   const cats = [...new Set(data.map(r => r.category).filter(Boolean))].sort();
@@ -113,7 +117,9 @@ function applyFilters() {
 catFilter.addEventListener('change', applyFilters);
 searchInput.addEventListener('input', applyFilters);
 
-// ── Charts ─────────────────────────────────────────────────────────────────
+// ── Charts ─────────────────────────────────────────────────────────
+
+const JEWEL_PALETTE = ['#d4a853', '#a78bfa', '#60a5fa', '#34d399', '#f472b6', '#fb923c'];
 
 function priceHistogram(data) {
   const prices = data.map(r => r.price).filter(p => !isNaN(p));
@@ -136,13 +142,25 @@ function priceHistogram(data) {
     type: 'bar',
     data: {
       labels: buckets.map(b => b.label),
-      datasets: [{ data: buckets.map(b => b.count), backgroundColor: '#3b82f6', borderRadius: 4 }],
+      datasets: [{
+        data: buckets.map(b => b.count),
+        backgroundColor: 'rgba(212, 168, 83, 0.65)',
+        borderColor: '#d4a853',
+        borderWidth: 1,
+        borderRadius: 5,
+      }],
     },
     options: {
       plugins: { legend: { display: false } },
       scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 40 } },
-        y: { grid: { color: '#f1f5f9' }, ticks: { precision: 0 } },
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 10 }, maxRotation: 40 },
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { precision: 0 },
+        },
       },
     },
   });
@@ -154,7 +172,6 @@ function categoryChart(data) {
   const labels = Object.keys(cats).sort();
   if (!labels.length) return;
 
-  const palette = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4'];
   const ctx = document.getElementById('cat-chart').getContext('2d');
   if (catChart) catChart.destroy();
   catChart = new Chart(ctx, {
@@ -163,27 +180,31 @@ function categoryChart(data) {
       labels: labels.map(l => l.charAt(0).toUpperCase() + l.slice(1)),
       datasets: [{
         data: labels.map(l => cats[l]),
-        backgroundColor: labels.map((_, i) => palette[i % palette.length]),
-        borderRadius: 4,
+        backgroundColor: labels.map((_, i) => JEWEL_PALETTE[i % JEWEL_PALETTE.length] + 'b0'),
+        borderColor:     labels.map((_, i) => JEWEL_PALETTE[i % JEWEL_PALETTE.length]),
+        borderWidth: 1,
+        borderRadius: 5,
       }],
     },
     options: {
       plugins: { legend: { display: false } },
       scales: {
         x: { grid: { display: false } },
-        y: { grid: { color: '#f1f5f9' }, ticks: { precision: 0 } },
+        y: {
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          ticks: { precision: 0 },
+        },
       },
     },
   });
 }
 
-// ── Scrape ─────────────────────────────────────────────────────────────────
+// ── Scrape ─────────────────────────────────────────────────────────
 
 scrapeBtn.addEventListener('click', () => {
   const url = urlInput.value.trim();
   if (!url) { urlInput.focus(); return; }
 
-  // Reset UI
   scrapeBtn.disabled = true;
   hide(errorCard);
   hide(resultsEl);
@@ -232,7 +253,6 @@ scrapeBtn.addEventListener('click', () => {
       errorMsg.textContent = message;
       show(errorCard);
     } catch {
-      // SSE connection error (not a server-sent error event)
       if (!resultsEl.classList.contains('hidden')) return;
       errorMsg.textContent = 'Connection lost. Please try again.';
       show(errorCard);
@@ -240,7 +260,6 @@ scrapeBtn.addEventListener('click', () => {
   });
 });
 
-// Allow pressing Enter in the URL field
 urlInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') scrapeBtn.click();
 });

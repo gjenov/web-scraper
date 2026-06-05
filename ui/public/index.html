@@ -4,14 +4,24 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Jewelry Scraper</title>
-  <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/tabulator-tables@6.2.1/dist/css/tabulator_midnight.min.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container">
+
     <header>
-      <h1>Jewelry Scraper</h1>
-      <p>Enter a store URL to extract all products, prices, and categories</p>
+      <div class="header-logo">
+        <svg class="gem-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M8 15L14 7H26L32 15L20 34L8 15Z" fill="currentColor" fill-opacity="0.12"/>
+          <path d="M8 15H32M14 7L8 15L20 34M26 7L32 15L20 34M14 7L20 15L26 7M8 15L20 15L32 15" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+        </svg>
+        <h1>Jewelry Scraper</h1>
+      </div>
+      <p>Enter a store URL to extract products, prices &amp; categories</p>
     </header>
 
     <div class="search-card">
@@ -29,33 +39,34 @@
 
     <div id="log-card" class="log-card hidden">
       <div class="log-header">
-        <span class="log-title">Progress</span>
         <span id="log-spinner" class="spinner"></span>
+        <span class="log-title">Progress</span>
       </div>
       <div id="log"></div>
     </div>
 
     <div id="error-card" class="error-card hidden">
+      <span class="error-icon">⚠</span>
       <span id="error-msg"></span>
     </div>
 
     <div id="results" class="hidden">
       <div class="stats-row">
         <div class="stat-card">
-          <span id="stat-count" class="stat-value">—</span>
           <span class="stat-label">Products</span>
+          <span id="stat-count" class="stat-value">—</span>
         </div>
         <div class="stat-card">
-          <span id="stat-min" class="stat-value">—</span>
           <span class="stat-label">Min Price</span>
+          <span id="stat-min" class="stat-value">—</span>
         </div>
         <div class="stat-card">
-          <span id="stat-max" class="stat-value">—</span>
           <span class="stat-label">Max Price</span>
+          <span id="stat-max" class="stat-value">—</span>
         </div>
         <div class="stat-card">
-          <span id="stat-avg" class="stat-value">—</span>
           <span class="stat-label">Avg Price</span>
+          <span id="stat-avg" class="stat-value">—</span>
         </div>
       </div>
 
@@ -83,6 +94,7 @@
         </div>
       </div>
     </div>
+
   </div>
 
   <script src="https://unpkg.com/tabulator-tables@6.2.1/dist/js/tabulator.min.js"></script>
