@@ -54,18 +54,26 @@ const fmt = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, m
 function show(el)  { el.classList.remove('hidden'); }
 function hide(el)  { el.classList.add('hidden'); }
 
-// Patterns that carry a running product total
+// Patterns that carry a product count — ordered most-specific first
 const COUNT_RE = [
-  /subtotal:\s*(\d+)\s+products?\s+total/i,   // generic: "Page N subtotal: 25 products total"
-  /running total:\s*(\d+)/i,                   // shopify: "(running total: 42)"
-  /^Done\s*[—-]\s*(\d+)\s+products?\s+saved/i, // final:   "Done — 21 products saved"
+  /subtotal:\s*(\d+)\s+products?\s+total/i,    // "Page N subtotal: 25 products total"
+  /running total:\s*(\d+)/i,                    // shopify "(running total: 42)"
+  /^Done\s*[—-]\s*(\d+)\s+products?\s+saved/i, // "Done — 21 products saved"
+  /:\s*(\d+)\s+products?\s+found/i,             // "Price scan: 25 products found"
+  /:\s*(\d+)\s+products?\s+across/i,            // "Shopify: 48 products across 3 pages"
 ];
+
+let _maxCount = 0;
 
 function updateCount(msg) {
   for (const re of COUNT_RE) {
     const m = msg.match(re);
     if (m) {
-      logCount.textContent = `${m[1]} found`;
+      const n = parseInt(m[1], 10);
+      if (n > _maxCount) {
+        _maxCount = n;
+        logCount.textContent = `${n} found`;
+      }
       return;
     }
   }
@@ -360,6 +368,7 @@ scrapeBtn.addEventListener('click', () => {
   hide(resultsEl);
   logEl.innerHTML = '';
   logCount.textContent = '';
+  _maxCount = 0;
   logSpinner.classList.remove('done');
   show(logCard);
   startTimer();

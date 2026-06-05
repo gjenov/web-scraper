@@ -32,7 +32,7 @@ def _find_url(card, base_url: str) -> str:
 
 _JUNK_NAME_RE = re.compile(
     r'\b(checkout|shopping cart|have a question|use code|ends soon|'
-    r'gifts? under|free shipping|purchase over|subscribe|newsletter|'
+    r'gifts? under|under\s*\$?\d|free shipping|purchase over|subscribe|newsletter|'
     r'sign up|log in|sign in|my account|view all|see all|load more|'
     r'add to cart|add to bag|sold out|out of stock|wishlist|'
     r'sweepstakes|gift card|promo code|discount|coupon)\b',
@@ -111,6 +111,47 @@ def _extract_json_ld(soup: BeautifulSoup, base_url: str) -> list[dict]:
     return results
 
 
+# ── data-* attribute JSON extraction ──────────────────────────────
+# Some sites (e.g. BrilliantEarth) embed full product data as JSON
+# in data-center / data-product / data-item attributes.
+
+_DATA_ATTRS = ["data-center", "data-product", "data-item", "data-product-json"]
+
+
+def _extract_from_data_attrs(soup: BeautifulSoup, base_url: str) -> list[dict]:
+    results = []
+    seen = set()
+    for attr in _DATA_ATTRS:
+        for el in soup.find_all(attrs={attr: True}):
+            raw = el.get(attr, "")
+            if not raw or raw in seen:
+                continue
+            seen.add(raw)
+            try:
+                data = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            if not isinstance(data, dict):
+                continue
+
+            name = (data.get("title") or data.get("name") or "").strip()
+            price_raw = data.get("price")
+            if not name or price_raw is None:
+                continue
+            try:
+                price = float(price_raw)
+            except (TypeError, ValueError):
+                continue
+
+            url = data.get("url", "")
+            if url and not url.startswith("http"):
+                url = _make_absolute(url, base_url)
+
+            if _is_valid_product(name, price, url):
+                results.append({"name": name, "price": price, "url": url})
+    return results
+
+
 # ── CSS-based extraction ───────────────────────────────────────────
 
 _PRICE_RE = re.compile(
@@ -137,6 +178,7 @@ _PRODUCT_SELECTORS = [
     "[class*='product-card']",
     "[class*='ProductItem']",
     "[class*='product-tile']",
+    "[class*='per-product']",
 ]
 
 _TITLE_SELECTORS = ["h2", "h3", "h4", ".product-title", ".product-name", ".item-title", "a"]
@@ -173,7 +215,15 @@ def _extract_from_soup(soup: BeautifulSoup, base_url: str = "") -> list[dict]:
         return results
     print("  JSON-LD: no products found")
 
-    # 2. Structured product card containers
+    # 2. data-* attribute JSON (e.g. data-center, data-product)
+    print("  Trying data-attribute JSON...")
+    results = _extract_from_data_attrs(soup, base_url)
+    if results:
+        print(f"  Data-attr: {len(results)} products found")
+        return results
+    print("  Data-attr: no products found")
+
+    # 3. Structured product card containers
     print("  Trying CSS product card selectors...")
     for selector in _PRODUCT_SELECTORS:
         cards = soup.select(selector)
@@ -191,7 +241,7 @@ def _extract_from_soup(soup: BeautifulSoup, base_url: str = "") -> list[dict]:
 
     print("  CSS selectors: no products found — falling back to price scan")
 
-    # 3. Last resort: regex scan — strictly validated
+    # 4. Last resort: regex scan — strictly validated
     for el in soup.find_all(string=_PRICE_RE):
         price = normalize_price(el.strip())
         if price is None or price <= 0:
@@ -225,6 +275,9 @@ def _extract_from_soup(soup: BeautifulSoup, base_url: str = "") -> list[dict]:
 
 # ── Async Playwright driver ────────────────────────────────────────
 
+_MAX_PAGES = 20
+
+
 async def _scrape_async(url: str) -> list[dict]:
     results = []
     visited = set()
@@ -242,7 +295,7 @@ async def _scrape_async(url: str) -> list[dict]:
 
         current_url = url
         page_num = 1
-        while current_url and current_url not in visited:
+        while current_url and current_url not in visited and page_num <= _MAX_PAGES:
             visited.add(current_url)
             print(f"Loading page {page_num} (browser rendering)...")
             try:
@@ -256,7 +309,7 @@ async def _scrape_async(url: str) -> list[dict]:
             # a post-load async API call (gives them up to 20s to appear)
             try:
                 await page.wait_for_selector(
-                    '[class*="price"], .price, span.money, .item-dis, .product-card, .product-item',
+                    '[class*="price"], .price, span.money, .item-dis, .product-card, .product-item, [class*="per-product"]',
                     timeout=20000,
                 )
                 print("  Product elements detected — capturing HTML...")
@@ -269,14 +322,24 @@ async def _scrape_async(url: str) -> list[dict]:
             results.extend(page_results)
             print(f"  Page {page_num} subtotal: {len(results)} products total")
 
+            # Stop paginating if this page had nothing — next link is likely a false positive
+            if not page_results:
+                break
+
             next_url = None
             for link in soup.find_all("a", string=_NEXT_PAGE_TEXTS):
                 href = link.get("href", "")
-                if href and href not in visited:
-                    next_url = href if href.startswith("http") else url.rstrip("/") + "/" + href.lstrip("/")
+                if not href:
+                    continue
+                abs_href = _make_absolute(href, current_url)
+                if abs_href and abs_href not in visited:
+                    next_url = abs_href
                     break
             current_url = next_url
             page_num += 1
+
+        if page_num > _MAX_PAGES:
+            print(f"  Reached page limit ({_MAX_PAGES})")
 
         await browser.close()
 
