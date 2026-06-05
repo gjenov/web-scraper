@@ -1,9 +1,28 @@
 import re
 import asyncio
+from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from playwright.async_api import async_playwright
 
 from utils.price import normalize_price
+
+
+def _make_absolute(href: str, base_url: str) -> str:
+    if not href:
+        return ""
+    if href.startswith("http"):
+        return href
+    if href.startswith("/"):
+        p = urlparse(base_url)
+        return f"{p.scheme}://{p.netloc}{href}"
+    return ""
+
+
+def _find_url(card, base_url: str) -> str:
+    link = card.select_one("a[href]")
+    if not link:
+        return ""
+    return _make_absolute(link.get("href", ""), base_url)
 
 
 _PRICE_RE = re.compile(r'[\$£€][\d,]+(?:\.\d{2})?|\d+(?:,\d{3})*(?:\.\d{2})?\s*(?:AUD|USD|NZD|GBP|EUR)', re.IGNORECASE)
@@ -25,7 +44,7 @@ _TITLE_SELECTORS = ["h2", "h3", "h4", ".product-title", ".product-name", ".item-
 _PRICE_SELECTORS = [".price", ".product-price", ".amount", "span.money", "[class*='price']"]
 
 
-def _extract_from_soup(soup: BeautifulSoup) -> list[dict]:
+def _extract_from_soup(soup: BeautifulSoup, base_url: str = "") -> list[dict]:
     results = []
 
     # Try structured product containers first
@@ -37,7 +56,7 @@ def _extract_from_soup(soup: BeautifulSoup) -> list[dict]:
                 price_raw = _find_price_text(card)
                 price = normalize_price(price_raw) if price_raw else None
                 if name and price is not None:
-                    results.append({"name": name, "price": price})
+                    results.append({"name": name, "price": price, "url": _find_url(card, base_url)})
             if results:
                 return results
 
@@ -48,17 +67,22 @@ def _extract_from_soup(soup: BeautifulSoup) -> list[dict]:
             continue
         parent = el.parent
         name = None
+        product_url = ""
         for ancestor in [parent] + list(parent.parents)[:4]:
             heading = ancestor.find(re.compile(r'^h[2-5]$'))
             if heading and heading.get_text(strip=True):
                 name = heading.get_text(strip=True)
+                link = ancestor.find("a", href=True)
+                if link:
+                    product_url = _make_absolute(link.get("href", ""), base_url)
                 break
             link = ancestor.find("a")
             if link and link.get_text(strip=True):
                 name = link.get_text(strip=True)
+                product_url = _make_absolute(link.get("href", ""), base_url)
                 break
         if name:
-            results.append({"name": name, "price": price})
+            results.append({"name": name, "price": price, "url": product_url})
 
     return results
 
@@ -107,7 +131,7 @@ async def _scrape_async(url: str) -> list[dict]:
             await page.wait_for_timeout(2000)
             html = await page.content()
             soup = BeautifulSoup(html, "lxml")
-            page_results = _extract_from_soup(soup)
+            page_results = _extract_from_soup(soup, current_url)
             results.extend(page_results)
 
             # Find next page link

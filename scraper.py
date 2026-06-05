@@ -89,8 +89,9 @@ def run(url: str, output_path: str | None) -> None:
     df = df.drop_duplicates(subset=["name", "price"])
     df = df.sort_values("name").reset_index(drop=True)
 
-    # Ensure consistent column order: name, price, category (if present)
-    cols = ["name", "price"] + [c for c in df.columns if c not in ("name", "price")]
+    # Ensure consistent column order: name, url, price, category (if present)
+    fixed = ["name", "url", "price"]
+    cols = fixed + [c for c in df.columns if c not in fixed]
     df = df[cols]
 
     if output_path is None:

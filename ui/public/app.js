@@ -54,7 +54,15 @@ function renderStats(data) {
 function buildColumns(data) {
   const hasCategory = data.some(r => r.category);
   const cols = [
-    { title: 'Name',  field: 'name',  widthGrow: 3, headerSort: true },
+    { title: 'Name', field: 'name', widthGrow: 3, headerSort: true },
+    {
+      title: 'Link', field: 'url', width: 72, headerSort: false,
+      formatter: (cell) => {
+        const url = cell.getValue();
+        if (!url) return '<span style="color:#444">—</span>';
+        return `<a href="${url}" target="_blank" rel="noopener noreferrer" style="color:var(--gold);text-decoration:none;font-size:0.8rem;font-weight:500;letter-spacing:0.01em;">View ↗</a>`;
+      },
+    },
     {
       title: 'Price', field: 'price', widthGrow: 1, headerSort: true,
       formatter: (cell) => fmt(cell.getValue()),

@@ -39,7 +39,12 @@ def scrape(base_url: str) -> list[dict]:
                     pass
             if not prices:
                 continue
-            products.append({"name": name, "price": min(prices)})
+            handle = product.get("handle", "")
+            products.append({
+                "name": name,
+                "price": min(prices),
+                "url": f"{base_url}/products/{handle}" if handle else "",
+            })
 
         page += 1
         time.sleep(0.5)

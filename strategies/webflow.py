@@ -54,7 +54,9 @@ def _scrape_page(url: str, base_url: str, category: str = "") -> list[dict]:
     for link in soup.find_all("a", href=_PRODUCT_HREF):
         name, price = _parse_product_text(link.get_text())
         if name and price is not None:
-            results.append({"name": name, "price": price, "category": category})
+            href = link.get("href", "")
+            product_url = base_url + href if href else ""
+            results.append({"name": name, "price": price, "url": product_url, "category": category})
     return results
 
 
