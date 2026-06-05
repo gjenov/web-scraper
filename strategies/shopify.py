@@ -25,6 +25,7 @@ def scrape(base_url: str) -> list[dict]:
         if not page_products:
             break
 
+        before = len(products)
         for product in page_products:
             name = product.get("title", "").strip()
             variants = product.get("variants", [])
@@ -46,7 +47,10 @@ def scrape(base_url: str) -> list[dict]:
                 "url": f"{base_url}/products/{handle}" if handle else "",
             })
 
+        added = len(products) - before
+        print(f"  Page {page}: {added} products  (running total: {len(products)})")
         page += 1
         time.sleep(0.5)
 
+    print(f"Shopify: {len(products)} products across {page - 1} page{'s' if page - 1 != 1 else ''}")
     return products

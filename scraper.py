@@ -64,9 +64,12 @@ def _site_name(url: str) -> str:
 def run(url: str, output_path: str | None) -> None:
     url = _normalize_url(url)
     print(f"Target: {url}")
+    print("Resolving URL and detecting platform...")
 
     platform, url = _detect_platform(url)
-    print(f"Platform: {platform} ({url})")
+    print(f"Platform detected: {platform}")
+    print(f"Resolved URL: {url}")
+    print(f"Starting {platform} scrape...")
 
     if platform == "shopify":
         records = shopify.scrape(url)
@@ -79,6 +82,9 @@ def run(url: str, output_path: str | None) -> None:
         print("No products found.", file=sys.stderr)
         sys.exit(1)
 
+    raw = len(records)
+    print(f"Collected {raw} raw records — cleaning...")
+
     df = pd.DataFrame(records)
 
     # Normalize any prices that came in as strings (generic strategy may return strings)
@@ -86,7 +92,15 @@ def run(url: str, output_path: str | None) -> None:
         df["price"] = df["price"].apply(lambda v: normalize_price(str(v)) if isinstance(v, str) else v)
 
     df = df.dropna(subset=["price"])
+    after_price = len(df)
+    if raw - after_price:
+        print(f"Dropped {raw - after_price} rows with unparseable prices")
+
     df = df.drop_duplicates(subset=["name", "price"])
+    dupes = after_price - len(df)
+    if dupes:
+        print(f"Removed {dupes} duplicate{'s' if dupes != 1 else ''}")
+
     df = df.sort_values("name").reset_index(drop=True)
 
     # Ensure consistent column order: name, url, price, category (if present)
@@ -101,4 +115,4 @@ def run(url: str, output_path: str | None) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(out, index=False)
 
-    print(f"Saved {len(df)} products to {out}")
+    print(f"Done — {len(df)} products saved to {out}")

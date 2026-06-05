@@ -297,10 +297,16 @@ header p {
 .log-header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
   margin-bottom: 12px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border-subtle);
+}
+
+.log-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .log-title {
@@ -310,6 +316,15 @@ header p {
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.log-timer {
+  font-size: 0.8rem;
+  color: var(--gold);
+  opacity: 0.7;
+  letter-spacing: 0.06em;
+  min-width: 36px;
+  text-align: right;
 }
 
 #log {

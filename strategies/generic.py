@@ -162,11 +162,15 @@ def _find_price_text(card) -> str | None:
 
 def _extract_from_soup(soup: BeautifulSoup, base_url: str = "") -> list[dict]:
     # 1. JSON-LD structured data — most reliable
+    print("  Trying JSON-LD structured data...")
     results = _extract_json_ld(soup, base_url)
     if results:
+        print(f"  JSON-LD: {len(results)} products found")
         return results
+    print("  JSON-LD: no products found")
 
     # 2. Structured product card containers
+    print("  Trying CSS product card selectors...")
     for selector in _PRODUCT_SELECTORS:
         cards = soup.select(selector)
         if len(cards) >= 3:
@@ -178,7 +182,10 @@ def _extract_from_soup(soup: BeautifulSoup, base_url: str = "") -> list[dict]:
                 if name and price is not None and _is_valid_product(name, price, url):
                     results.append({"name": name, "price": price, "url": url})
             if results:
+                print(f"  CSS '{selector}': {len(results)} products found")
                 return results
+
+    print("  CSS selectors: no products found — falling back to price scan")
 
     # 3. Last resort: regex scan — strictly validated
     for el in soup.find_all(string=_PRICE_RE):
@@ -204,6 +211,11 @@ def _extract_from_soup(soup: BeautifulSoup, base_url: str = "") -> list[dict]:
         if name and _is_valid_product(name, price, product_url):
             results.append({"name": name, "price": price, "url": product_url})
 
+    if results:
+        print(f"  Price scan: {len(results)} products found")
+    else:
+        print("  Price scan: no products found")
+
     return results
 
 
@@ -225,8 +237,10 @@ async def _scrape_async(url: str) -> list[dict]:
         })
 
         current_url = url
+        page_num = 1
         while current_url and current_url not in visited:
             visited.add(current_url)
+            print(f"Loading page {page_num} (browser rendering)...")
             # networkidle ensures JS-rendered product grids are present
             await page.goto(current_url, wait_until="networkidle", timeout=60000)
             await page.wait_for_timeout(2000)
@@ -234,6 +248,7 @@ async def _scrape_async(url: str) -> list[dict]:
             soup = BeautifulSoup(html, "lxml")
             page_results = _extract_from_soup(soup, current_url)
             results.extend(page_results)
+            print(f"  Page {page_num} subtotal: {len(results)} products total")
 
             next_url = None
             for link in soup.find_all("a", string=_NEXT_PAGE_TEXTS):
@@ -242,6 +257,7 @@ async def _scrape_async(url: str) -> list[dict]:
                     next_url = href if href.startswith("http") else url.rstrip("/") + "/" + href.lstrip("/")
                     break
             current_url = next_url
+            page_num += 1
 
         await browser.close()
 

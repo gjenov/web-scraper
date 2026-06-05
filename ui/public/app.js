@@ -8,6 +8,7 @@ const historyTotal = document.getElementById('history-total');
 const logCard     = document.getElementById('log-card');
 const logEl       = document.getElementById('log');
 const logSpinner  = document.getElementById('log-spinner');
+const logTimer    = document.getElementById('log-timer');
 const errorCard   = document.getElementById('error-card');
 const errorMsg    = document.getElementById('error-msg');
 const resultsEl   = document.getElementById('results');
@@ -20,6 +21,26 @@ let priceChart = null;
 let catChart = null;
 let allData = [];
 let downloadUrl = '';
+
+// ── Timer ──────────────────────────────────────────────────────────
+
+let timerInterval = null;
+
+function startTimer() {
+  const start = Date.now();
+  logTimer.textContent = '00:00';
+  timerInterval = setInterval(() => {
+    const s = Math.floor((Date.now() - start) / 1000);
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    logTimer.textContent = `${mm}:${ss}`;
+  }, 1000);
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+  timerInterval = null;
+}
 
 // ── Chart.js dark theme defaults ───────────────────────────────────
 Chart.defaults.color = '#8a8899';
@@ -321,6 +342,7 @@ scrapeBtn.addEventListener('click', () => {
   logEl.innerHTML = '';
   logSpinner.classList.remove('done');
   show(logCard);
+  startTimer();
 
   const es = new EventSource(`/api/scrape?url=${encodeURIComponent(url)}`);
 
@@ -331,6 +353,7 @@ scrapeBtn.addEventListener('click', () => {
 
   es.addEventListener('complete', (e) => {
     es.close();
+    stopTimer();
     logSpinner.classList.add('done');
 
     const { products, downloadUrl: dl } = JSON.parse(e.data);
@@ -342,6 +365,7 @@ scrapeBtn.addEventListener('click', () => {
 
   es.addEventListener('error', (e) => {
     es.close();
+    stopTimer();
     logSpinner.classList.add('done');
     scrapeBtn.disabled = false;
 
