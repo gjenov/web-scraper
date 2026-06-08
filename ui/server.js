@@ -270,12 +270,8 @@ app.get('/api/diamond-scrape-all', (req, res) => {
         searchParams: { shape, caratFrom, caratTo, color, clarity, cut, type },
       }));
 
-      const totalCount = records.length;
-      const truncated  = totalCount > MAX_TABLE_ROWS;
       send('complete', {
-        products:   truncated ? records.slice(0, MAX_TABLE_ROWS) : records,
-        truncated,
-        totalCount,
+        products: records,
         downloadUrl: `/download/${filename}`,
         siteName: 'diamonds_bluenile_full',
       });
@@ -318,8 +314,6 @@ app.get('/api/results', (req, res) => {
   }
 });
 
-const MAX_TABLE_ROWS = 10_000;
-
 app.get('/api/results/:filename', (req, res) => {
   const filename = path.basename(req.params.filename);
   if (!filename.endsWith('.csv')) return res.status(400).json({ error: 'Invalid file' });
@@ -332,13 +326,7 @@ app.get('/api/results/:filename', (req, res) => {
       r.price = parseFloat(r.price);
       if (r.carat !== undefined) r.carat = parseFloat(r.carat);
     });
-    const totalCount = records.length;
-    const truncated  = totalCount > MAX_TABLE_ROWS;
-    res.json({
-      products:   truncated ? records.slice(0, MAX_TABLE_ROWS) : records,
-      truncated,
-      totalCount,
-    });
+    res.json({ products: records });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

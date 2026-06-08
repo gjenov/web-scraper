@@ -330,20 +330,13 @@ function buildClarityChart(data) {
 }
 
 // ── Load results into masterData ──────────────────────────────────────
-function loadIntoMaster(products, filename, totalCount = null) {
+function loadIntoMaster(products, filename) {
   masterData = products;
 
   dHide(dErrorCard);
   dShow(dResultsEl);
 
-  if (totalCount && totalCount > products.length) {
-    dDownloadBtn.textContent = `Download Full CSV (${totalCount.toLocaleString()} rows)`;
-    dFilterStatus.textContent =
-      `Table shows first ${products.length.toLocaleString()} of ${totalCount.toLocaleString()} diamonds — download CSV for all`;
-    dShow(dFilterStatus);
-  } else {
-    dDownloadBtn.textContent = 'Download Filtered CSV';
-  }
+  dDownloadBtn.textContent = 'Download Filtered CSV';
 
   applyFilters();
 }
@@ -356,9 +349,9 @@ async function selectDHistory(filename, itemEl) {
   itemEl.classList.add('active');
   activeDHistoryFile = filename;
   try {
-    const { products, truncated, totalCount } = await fetch(`/api/results/${encodeURIComponent(filename)}`).then(r => r.json());
+    const { products } = await fetch(`/api/results/${encodeURIComponent(filename)}`).then(r => r.json());
     products.forEach(r => { r.price = parseFloat(r.price); r.carat = parseFloat(r.carat); });
-    loadIntoMaster(products, filename, truncated ? totalCount : null);
+    loadIntoMaster(products, filename);
   } catch (e) {
     dErrorMsg.textContent = 'Failed to load: ' + e.message;
     dShow(dErrorCard);
@@ -474,10 +467,10 @@ function startFullScrape() {
     dLogSpinner.classList.add('done');
     dBatchStatus.classList.remove('active');
     try {
-      const { products, truncated, totalCount, downloadUrl: dl } = JSON.parse(e.data);
+      const { products, downloadUrl: dl } = JSON.parse(e.data);
       const filename = dl.replace('/download/', '');
       products.forEach(r => { r.price = parseFloat(r.price); r.carat = parseFloat(r.carat); });
-      loadIntoMaster(products, filename, truncated ? totalCount : null);
+      loadIntoMaster(products, filename);
       loadDiamondHistory();
     } catch (err) {
       dErrorMsg.textContent = 'Scrape complete — display error: ' + err.message + '. Load from history.';
