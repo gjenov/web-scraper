@@ -817,6 +817,28 @@ header p {
 .range-inputs input[type="number"]:focus { border-color: var(--gold); }
 .range-inputs input[type="number"]::placeholder { color: var(--text-muted); }
 
+.carat-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.carat-preset-btn {
+  padding: 3px 9px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.13s, border-color 0.13s, color 0.13s;
+}
+.carat-preset-btn:hover { border-color: rgba(212, 168, 83, 0.45); color: var(--text); }
+.carat-preset-btn.selected { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+
 .range-sep {
   color: var(--text-muted);
   font-size: 0.9rem;

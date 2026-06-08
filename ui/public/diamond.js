@@ -150,8 +150,27 @@ document.querySelectorAll('.cb-group-pill').forEach(btn => {
   });
 });
 
+document.querySelectorAll('.carat-preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const isActive = btn.classList.contains('selected');
+    document.querySelectorAll('.carat-preset-btn').forEach(b => b.classList.remove('selected'));
+    if (!isActive) {
+      btn.classList.add('selected');
+      document.getElementById('d-carat-from').value = btn.dataset.from;
+      document.getElementById('d-carat-to').value   = btn.dataset.to;
+    } else {
+      document.getElementById('d-carat-from').value = '';
+      document.getElementById('d-carat-to').value   = '';
+    }
+    applyFilters();
+  });
+});
+
 ['d-carat-from', 'd-carat-to', 'd-price-from', 'd-price-to'].forEach(id => {
-  document.getElementById(id)?.addEventListener('input', applyFilters);
+  document.getElementById(id)?.addEventListener('input', () => {
+    document.querySelectorAll('.carat-preset-btn').forEach(b => b.classList.remove('selected'));
+    applyFilters();
+  });
 });
 
 dSearchInput.addEventListener('input', applyFilters);
@@ -160,6 +179,7 @@ dSearchInput.addEventListener('input', applyFilters);
 dResetBtn.addEventListener('click', () => {
   document.querySelectorAll('input[name="d-shape"], input[name="d-cut"]').forEach(el => { el.checked = false; });
   document.querySelectorAll('.cb-group-pill').forEach(btn => btn.classList.remove('selected'));
+  document.querySelectorAll('.carat-preset-btn').forEach(btn => btn.classList.remove('selected'));
   document.querySelector('input[name="d-type"][value="all"]').checked = true;
   ['d-carat-from', 'd-carat-to', 'd-price-from', 'd-price-to'].forEach(id => {
     const el = document.getElementById(id);
