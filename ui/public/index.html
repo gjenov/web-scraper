@@ -15,104 +15,319 @@
 
     <header>
       <h1>Jewelry Scraper</h1>
-      <p>Enter a store URL to extract products, prices &amp; categories</p>
+      <p>Product price extraction &amp; diamond search</p>
     </header>
 
-    <div class="search-card">
-      <div class="search-row">
-        <input
-          type="url"
-          id="url-input"
-          placeholder="https://bravojewellers.com"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <button id="scrape-btn">Scrape</button>
-      </div>
+    <div class="tab-switcher">
+      <button class="tab-btn active" data-tab="scraper">Product Scraper</button>
+      <button class="tab-btn" data-tab="diamond">Diamond Search</button>
     </div>
 
-    <div id="history-card" class="history-card hidden">
-      <div class="history-header">
-        <span class="history-title">Previous Results</span>
-        <span id="history-total" class="history-total"></span>
-      </div>
-      <div id="history-list" class="history-list"></div>
-    </div>
+    <!-- ══ PRODUCT SCRAPER TAB ══════════════════════════════════════ -->
+    <div id="scraper-tab" class="tab-pane">
 
-    <div id="log-card" class="log-card hidden">
-      <div class="log-header">
-        <div class="log-header-left">
-          <span id="log-spinner" class="spinner"></span>
-          <span class="log-title">Progress</span>
-        </div>
-        <div class="log-header-right">
-          <span id="log-count" class="log-count"></span>
-          <span id="log-timer" class="log-timer"></span>
-        </div>
-      </div>
-      <div id="log"></div>
-    </div>
-
-    <div id="error-card" class="error-card hidden">
-      <span class="error-icon">⚠</span>
-      <span id="error-msg"></span>
-    </div>
-
-    <div id="results" class="hidden">
-      <div class="stats-row">
-        <div class="stat-card">
-          <span class="stat-label">Products</span>
-          <span id="stat-count" class="stat-value">—</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Min Price</span>
-          <span id="stat-min" class="stat-value">—</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Max Price</span>
-          <span id="stat-max" class="stat-value">—</span>
-        </div>
-        <div class="stat-card">
-          <span class="stat-label">Avg Price</span>
-          <span id="stat-avg" class="stat-value">—</span>
+      <div class="search-card">
+        <div class="search-row">
+          <input
+            type="url"
+            id="url-input"
+            placeholder="https://bravojewellers.com"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button id="scrape-btn">Scrape</button>
         </div>
       </div>
 
-      <div class="table-card">
-        <div class="table-toolbar">
-          <div class="toolbar-left">
-            <select id="category-filter">
-              <option value="">All Categories</option>
-            </select>
-            <input type="text" id="search-input" placeholder="Search by name…" />
+      <div id="history-card" class="history-card hidden">
+        <div class="history-header">
+          <span class="history-title">Previous Results</span>
+          <span id="history-total" class="history-total"></span>
+        </div>
+        <div id="history-list" class="history-list"></div>
+      </div>
+
+      <div id="log-card" class="log-card hidden">
+        <div class="log-header">
+          <div class="log-header-left">
+            <span id="log-spinner" class="spinner"></span>
+            <span class="log-title">Progress</span>
           </div>
-          <button id="download-btn" class="btn-secondary">Download CSV</button>
-        </div>
-        <div id="table"></div>
-      </div>
-
-      <div class="charts-section">
-        <div class="chart-card">
-          <h3>Price Distribution</h3>
-          <canvas id="price-chart"></canvas>
-        </div>
-        <div class="charts-bottom-row">
-          <div class="chart-card" id="donut-chart-card">
-            <h3>Price Segments</h3>
-            <canvas id="donut-chart"></canvas>
-          </div>
-          <div class="chart-card" id="cat-chart-card">
-            <h3>Category Breakdown</h3>
-            <canvas id="cat-chart"></canvas>
+          <div class="log-header-right">
+            <span id="log-count" class="log-count"></span>
+            <span id="log-timer" class="log-timer"></span>
           </div>
         </div>
+        <div id="log"></div>
       </div>
-    </div>
+
+      <div id="error-card" class="error-card hidden">
+        <span class="error-icon">⚠</span>
+        <span id="error-msg"></span>
+      </div>
+
+      <div id="results" class="hidden">
+        <div class="stats-row">
+          <div class="stat-card">
+            <span class="stat-label">Products</span>
+            <span id="stat-count" class="stat-value">—</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Min Price</span>
+            <span id="stat-min" class="stat-value">—</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Max Price</span>
+            <span id="stat-max" class="stat-value">—</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Avg Price</span>
+            <span id="stat-avg" class="stat-value">—</span>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-toolbar">
+            <div class="toolbar-left">
+              <select id="category-filter">
+                <option value="">All Categories</option>
+              </select>
+              <input type="text" id="search-input" placeholder="Search by name…" />
+            </div>
+            <button id="download-btn" class="btn-secondary">Download CSV</button>
+          </div>
+          <div id="table"></div>
+        </div>
+
+        <div class="charts-section">
+          <div class="chart-card">
+            <h3>Price Distribution</h3>
+            <canvas id="price-chart"></canvas>
+          </div>
+          <div class="charts-bottom-row">
+            <div class="chart-card" id="donut-chart-card">
+              <h3>Price Segments</h3>
+              <canvas id="donut-chart"></canvas>
+            </div>
+            <div class="chart-card" id="cat-chart-card">
+              <h3>Category Breakdown</h3>
+              <canvas id="cat-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /#scraper-tab -->
+
+    <!-- ══ DIAMOND SEARCH TAB ════════════════════════════════════════ -->
+    <div id="diamond-tab" class="tab-pane hidden">
+
+      <!-- Filter card -->
+      <div class="filter-card">
+
+        <div class="filter-row">
+          <div class="filter-group filter-group--shapes">
+            <label class="filter-label">Shape</label>
+            <div class="checkbox-grid">
+              <label class="cb-pill"><input type="checkbox" name="d-shape" value="Round" /><span>Round</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-shape" value="Oval" /><span>Oval</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-shape" value="Cushion" /><span>Cushion</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-shape" value="Princess" /><span>Princess</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-shape" value="Emerald" /><span>Emerald</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-shape" value="Pear" /><span>Pear</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-shape" value="Radiant" /><span>Radiant</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-shape" value="Marquise" /><span>Marquise</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-shape" value="Asscher" /><span>Asscher</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-shape" value="Heart" /><span>Heart</span></label>
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-row filter-row--multi">
+
+          <div class="filter-group">
+            <label class="filter-label">Carat</label>
+            <div class="range-inputs">
+              <input type="number" id="d-carat-from" placeholder="Min" min="0.1" max="30" step="0.01" />
+              <span class="range-sep">–</span>
+              <input type="number" id="d-carat-to" placeholder="Max" min="0.1" max="30" step="0.01" />
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Color</label>
+            <div class="checkbox-row">
+              <label class="cb-pill"><input type="checkbox" name="d-color" value="D" /><span>D</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-color" value="E" /><span>E</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-color" value="F" /><span>F</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-color" value="G" /><span>G</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-color" value="H" /><span>H</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-color" value="I" /><span>I</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-color" value="J" /><span>J</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-color" value="K" /><span>K</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-color" value="L" /><span>L</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-color" value="M" /><span>M</span></label>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="filter-row filter-row--multi">
+
+          <div class="filter-group">
+            <label class="filter-label">Clarity</label>
+            <div class="checkbox-row">
+              <label class="cb-pill"><input type="checkbox" name="d-clarity" value="FL" /><span>FL</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-clarity" value="IF" /><span>IF</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-clarity" value="VVS1" /><span>VVS1</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-clarity" value="VVS2" /><span>VVS2</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-clarity" value="VS1" /><span>VS1</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-clarity" value="VS2" /><span>VS2</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-clarity" value="SI1" /><span>SI1</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-clarity" value="SI2" /><span>SI2</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-clarity" value="I1" /><span>I1</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-clarity" value="I2" /><span>I2</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-clarity" value="I3" /><span>I3</span></label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Cut</label>
+            <div class="checkbox-row">
+              <label class="cb-pill"><input type="checkbox" name="d-cut" value="Ideal" /><span>Ideal</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-cut" value="Very Good" /><span>Very Good</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-cut" value="Good" /><span>Good</span></label>
+              <label class="cb-pill"><input type="checkbox" name="d-cut" value="Fair" /><span>Fair</span></label>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="filter-row filter-row--bottom">
+          <div class="filter-group">
+            <label class="filter-label">Type</label>
+            <div class="radio-toggle">
+              <label class="radio-pill">
+                <input type="radio" name="d-type" value="all" checked />
+                <span>All</span>
+              </label>
+              <label class="radio-pill">
+                <input type="radio" name="d-type" value="natural" />
+                <span>Natural</span>
+              </label>
+              <label class="radio-pill">
+                <input type="radio" name="d-type" value="lab" />
+                <span>Lab Grown</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label">Price ($)</label>
+            <div class="range-inputs">
+              <input type="number" id="d-price-from" placeholder="Min" min="0" step="100" />
+              <span class="range-sep">–</span>
+              <input type="number" id="d-price-to" placeholder="Max" min="0" step="100" />
+            </div>
+          </div>
+
+          <div class="filter-actions">
+            <button id="d-search-btn" class="search-diamonds-btn">Scrape Blue Nile</button>
+            <button id="d-full-scrape-btn" class="full-scrape-btn"
+              title="Fetches all matching diamonds in batches — may take 10–30 min">
+              Full Catalog Scrape
+            </button>
+            <button id="d-reset-btn" class="btn-reset">Reset Filters</button>
+          </div>
+        </div>
+
+      </div><!-- /.filter-card -->
+
+      <div id="d-history-card" class="history-card hidden">
+        <div class="history-header">
+          <span class="history-title">Previous Searches</span>
+          <span id="d-history-total" class="history-total"></span>
+        </div>
+        <div id="d-history-list" class="history-list"></div>
+      </div>
+
+      <div id="d-log-card" class="log-card hidden">
+        <div class="log-header">
+          <div class="log-header-left">
+            <span id="d-log-spinner" class="spinner"></span>
+            <span class="log-title">Progress</span>
+          </div>
+          <div class="log-header-right">
+            <span id="d-log-count" class="log-count"></span>
+            <span id="d-log-timer" class="log-timer"></span>
+            <span id="d-batch-status" class="batch-status hidden"></span>
+          </div>
+        </div>
+        <div id="d-log"></div>
+      </div>
+
+      <div id="d-error-card" class="error-card hidden">
+        <span class="error-icon">⚠</span>
+        <span id="d-error-msg"></span>
+      </div>
+
+      <div id="d-results" class="hidden">
+        <div class="stats-row">
+          <div class="stat-card">
+            <span class="stat-label">Diamonds</span>
+            <span id="d-stat-count" class="stat-value">—</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Min Price</span>
+            <span id="d-stat-min" class="stat-value">—</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Max Price</span>
+            <span id="d-stat-max" class="stat-value">—</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Avg Price</span>
+            <span id="d-stat-avg" class="stat-value">—</span>
+          </div>
+        </div>
+
+        <div id="d-filter-status" class="filter-status hidden"></div>
+
+        <div class="table-card">
+          <div class="table-toolbar">
+            <div class="toolbar-left">
+              <input type="text" id="d-search-input" placeholder="Search diamonds…" />
+            </div>
+            <button id="d-download-btn" class="btn-secondary">Download CSV</button>
+          </div>
+          <div id="d-table"></div>
+        </div>
+
+        <div class="charts-section">
+          <div class="chart-card">
+            <h3>Carat Distribution</h3>
+            <canvas id="d-carat-chart"></canvas>
+          </div>
+          <div class="charts-bottom-row">
+            <div class="chart-card">
+              <h3>Color Breakdown</h3>
+              <canvas id="d-color-chart"></canvas>
+            </div>
+            <div class="chart-card">
+              <h3>Clarity Breakdown</h3>
+              <canvas id="d-clarity-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div><!-- /#d-results -->
+
+    </div><!-- /#diamond-tab -->
 
   </div>
 
   <script src="https://unpkg.com/tabulator-tables@6.2.1/dist/js/tabulator.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="app.js"></script>
+  <script src="diamond.js"></script>
 </body>
 </html>

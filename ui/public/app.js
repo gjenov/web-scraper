@@ -463,7 +463,8 @@ async function deleteHistory(filename, itemEl) {
 
 async function loadHistory() {
   try {
-    const results = await fetch('/api/results').then(r => r.json());
+    const all = await fetch('/api/results').then(r => r.json());
+    const results = all.filter(r => !r.filename.startsWith('diamonds_'));
     if (!results.length) { hide(historyCard); return; }
 
     show(historyCard);

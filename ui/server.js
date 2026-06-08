@@ -89,11 +89,210 @@ app.get('/api/scrape', (req, res) => {
   req.on('close', () => { try { proc.kill(); } catch {} });
 });
 
+app.get('/api/diamond-search', (req, res) => {
+  const { shape, caratFrom, caratTo, color, clarity, cut, type } = req.query;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const send = (event, data) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (res.flush) res.flush();
+  };
+
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+
+  const timestamp = Date.now();
+  const outputPath = path.join(OUTPUT_DIR, `diamonds_bluenile_${timestamp}.csv`);
+
+  const args = ['-u', 'diamond_main.py', '--output', outputPath];
+  if (shape) args.push('--shape', ...shape.split(',').map(s => s.trim()).filter(Boolean));
+  if (caratFrom) args.push('--carat-from', caratFrom);
+  if (caratTo) args.push('--carat-to', caratTo);
+  if (color) args.push('--color', ...color.split(',').map(s => s.trim()).filter(Boolean));
+  if (clarity) args.push('--clarity', ...clarity.split(',').map(s => s.trim()).filter(Boolean));
+  if (cut) args.push('--cut', ...cut.split(',').map(s => s.trim()).filter(Boolean));
+  if (type) args.push('--type', type);
+
+  send('progress', { message: `Starting Blue Nile diamond search...` });
+  if (shape) send('progress', { message: `Shapes: ${shape}` });
+  if (caratFrom || caratTo) send('progress', { message: `Carat: ${caratFrom || '0'} – ${caratTo || '∞'}` });
+  if (color) send('progress', { message: `Color: ${color}` });
+  if (clarity) send('progress', { message: `Clarity: ${clarity}` });
+  if (cut) send('progress', { message: `Cut: ${cut}` });
+  send('progress', { message: `Type: ${type || 'natural'}` });
+
+  const proc = spawn(PYTHON, args, { cwd: SCRAPER_DIR });
+
+  proc.stdout.on('data', (chunk) => {
+    chunk.toString().split('\n').filter(l => l.trim()).forEach(line => {
+      send('progress', { message: line });
+    });
+  });
+
+  proc.stderr.on('data', (chunk) => {
+    chunk.toString().split('\n').filter(l => l.trim()).forEach(line => {
+      send('progress', { message: line, isError: true });
+    });
+  });
+
+  proc.on('close', (code) => {
+    if (code !== 0 || !fs.existsSync(outputPath)) {
+      send('error', { message: 'Diamond search failed. Check parameters and try again.' });
+      return res.end();
+    }
+
+    try {
+      const csvText = fs.readFileSync(outputPath, 'utf8');
+      const records = parse(csvText, { columns: true, skip_empty_lines: true });
+      records.forEach(r => {
+        r.price = parseFloat(r.price);
+        r.carat = parseFloat(r.carat);
+      });
+
+      const filename = path.basename(outputPath);
+      const parts = [
+        shape   ? `Shapes: ${shape}`                              : null,
+        (caratFrom || caratTo) ? `Carat: ${caratFrom||''}–${caratTo||''}` : null,
+        color   ? `Color: ${color}`                               : null,
+        clarity ? `Clarity: ${clarity}`                           : null,
+        cut     ? `Cut: ${cut}`                                   : null,
+        `Type: ${type || 'natural'}`,
+      ].filter(Boolean);
+      fs.writeFileSync(outputPath + '.meta.json', JSON.stringify({
+        url: parts.join(' | '),
+        siteName: 'diamonds_bluenile',
+        searchParams: { shape, caratFrom, caratTo, color, clarity, cut, type },
+      }));
+
+      send('complete', {
+        products: records,
+        downloadUrl: `/download/${filename}`,
+        siteName: 'diamonds_bluenile',
+      });
+    } catch (e) {
+      send('error', { message: 'Failed to parse results: ' + e.message });
+    }
+    res.end();
+  });
+
+  req.on('close', () => { try { proc.kill(); } catch {} });
+});
+
+app.get('/api/diamond-scrape-all', (req, res) => {
+  const { shape, caratFrom, caratTo, color, clarity, cut, type, resume } = req.query;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const send = (event, data) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (res.flush) res.flush();
+  };
+
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+
+  const timestamp = Date.now();
+  const outputPath = path.join(OUTPUT_DIR, `diamonds_bluenile_full_${timestamp}.csv`);
+
+  const args = ['-u', 'diamond_main.py', '--output', outputPath, '--full-scrape'];
+  if (resume === 'true') args.push('--resume');
+  if (shape)   args.push('--shape',   ...shape.split(',').map(s => s.trim()).filter(Boolean));
+  if (caratFrom) args.push('--carat-from', caratFrom);
+  if (caratTo)   args.push('--carat-to',   caratTo);
+  if (color)   args.push('--color',   ...color.split(',').map(s => s.trim()).filter(Boolean));
+  if (clarity) args.push('--clarity', ...clarity.split(',').map(s => s.trim()).filter(Boolean));
+  if (cut)     args.push('--cut',     ...cut.split(',').map(s => s.trim()).filter(Boolean));
+  if (type)    args.push('--type',    type);
+
+  send('progress', { message: 'Starting full catalog scrape...' });
+  if (shape)   send('progress', { message: `Shapes: ${shape}` });
+  if (caratFrom || caratTo) send('progress', { message: `Carat: ${caratFrom || '0'} – ${caratTo || '∞'}` });
+  if (color)   send('progress', { message: `Color: ${color}` });
+  if (clarity) send('progress', { message: `Clarity: ${clarity}` });
+  if (cut)     send('progress', { message: `Cut: ${cut}` });
+  send('progress', { message: `Type: ${type || 'natural'}` });
+
+  const proc = spawn(PYTHON, args, { cwd: SCRAPER_DIR });
+
+  proc.stdout.on('data', (chunk) => {
+    chunk.toString().split('\n').filter(l => l.trim()).forEach(line => {
+      const batchMatch = line.match(/^BATCH:(\d+)\/(\d+)\s*[—\-]\s*([\d,]+)\s+diamonds/);
+      if (batchMatch) {
+        send('batch-progress', {
+          message:   line,
+          bucket:    parseInt(batchMatch[1]),
+          total:     parseInt(batchMatch[2]),
+          collected: parseInt(batchMatch[3].replace(/,/g, '')),
+        });
+      } else {
+        send('progress', { message: line });
+      }
+    });
+  });
+
+  proc.stderr.on('data', (chunk) => {
+    chunk.toString().split('\n').filter(l => l.trim()).forEach(line => {
+      send('progress', { message: line, isError: true });
+    });
+  });
+
+  proc.on('close', (code) => {
+    if (code !== 0 || !fs.existsSync(outputPath)) {
+      send('error', { message: 'Full catalog scrape failed. Retry with same filters to resume.' });
+      return res.end();
+    }
+
+    try {
+      const csvText = fs.readFileSync(outputPath, 'utf8');
+      const records = parse(csvText, { columns: true, skip_empty_lines: true });
+      records.forEach(r => {
+        r.price = parseFloat(r.price);
+        r.carat = parseFloat(r.carat);
+      });
+
+      const filename = path.basename(outputPath);
+      const parts = [
+        shape   ? `Shapes: ${shape}` : null,
+        (caratFrom || caratTo) ? `Carat: ${caratFrom||''}–${caratTo||''}` : null,
+        color   ? `Color: ${color}`   : null,
+        clarity ? `Clarity: ${clarity}` : null,
+        cut     ? `Cut: ${cut}`       : null,
+        `Type: ${type || 'natural'} | Full Catalog`,
+      ].filter(Boolean);
+      fs.writeFileSync(outputPath + '.meta.json', JSON.stringify({
+        url: parts.join(' | '),
+        siteName: 'diamonds_bluenile_full',
+        searchParams: { shape, caratFrom, caratTo, color, clarity, cut, type },
+      }));
+
+      const totalCount = records.length;
+      const truncated  = totalCount > MAX_TABLE_ROWS;
+      send('complete', {
+        products:   truncated ? records.slice(0, MAX_TABLE_ROWS) : records,
+        truncated,
+        totalCount,
+        downloadUrl: `/download/${filename}`,
+        siteName: 'diamonds_bluenile_full',
+      });
+    } catch (e) {
+      send('error', { message: 'Failed to parse results: ' + e.message });
+    }
+    res.end();
+  });
+
+  req.on('close', () => { try { proc.kill(); } catch {} });
+});
+
 app.get('/api/results', (req, res) => {
   if (!fs.existsSync(OUTPUT_DIR)) return res.json([]);
   try {
     const files = fs.readdirSync(OUTPUT_DIR)
-      .filter(f => f.endsWith('.csv'))
+      .filter(f => f.endsWith('.csv') && !f.startsWith('.'))
       .map(f => {
         const filepath = path.join(OUTPUT_DIR, f);
         const stat = fs.statSync(filepath);
@@ -119,6 +318,8 @@ app.get('/api/results', (req, res) => {
   }
 });
 
+const MAX_TABLE_ROWS = 10_000;
+
 app.get('/api/results/:filename', (req, res) => {
   const filename = path.basename(req.params.filename);
   if (!filename.endsWith('.csv')) return res.status(400).json({ error: 'Invalid file' });
@@ -127,8 +328,17 @@ app.get('/api/results/:filename', (req, res) => {
   try {
     const csvText = fs.readFileSync(file, 'utf8');
     const records = parse(csvText, { columns: true, skip_empty_lines: true });
-    records.forEach(r => { r.price = parseFloat(r.price); });
-    res.json({ products: records });
+    records.forEach(r => {
+      r.price = parseFloat(r.price);
+      if (r.carat !== undefined) r.carat = parseFloat(r.carat);
+    });
+    const totalCount = records.length;
+    const truncated  = totalCount > MAX_TABLE_ROWS;
+    res.json({
+      products:   truncated ? records.slice(0, MAX_TABLE_ROWS) : records,
+      truncated,
+      totalCount,
+    });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

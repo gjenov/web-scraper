@@ -634,6 +634,395 @@ header p {
 /* Category: horizontal bars, height scales with category count */
 #cat-chart-card canvas { max-height: 260px; }
 
+/* ── Tab switcher ────────────────────────────────────────────────── */
+
+.tab-switcher {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-btn {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px 22px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.tab-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: var(--gold-dim);
+}
+
+.tab-btn.active {
+  background: var(--gold-dim);
+  border-color: var(--gold);
+  color: var(--gold);
+  font-weight: 600;
+}
+
+/* ── Diamond filter card ─────────────────────────────────────────── */
+
+.filter-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-row--multi {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.filter-row--bottom {
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Shape checkboxes in a 5-column grid */
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  gap: 6px;
+  justify-content: start;
+}
+
+/* Color / clarity / cut checkboxes in a wrapping row */
+.checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Pill-style checkbox */
+.cb-pill {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.cb-pill input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.cb-pill span {
+  display: inline-block;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-muted);
+  transition: background 0.13s, border-color 0.13s, color 0.13s;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.cb-pill input[type="checkbox"]:checked + span {
+  background: var(--gold-dim);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.cb-pill:hover span {
+  border-color: rgba(212, 168, 83, 0.45);
+  color: var(--text);
+}
+
+/* Carat range inputs */
+.range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-inputs input[type="number"] {
+  width: 90px;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  color: var(--text);
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  -moz-appearance: textfield;
+}
+
+.range-inputs input[type="number"]::-webkit-outer-spin-button,
+.range-inputs input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+.range-inputs input[type="number"]:focus { border-color: var(--gold); }
+.range-inputs input[type="number"]::placeholder { color: var(--text-muted); }
+
+.range-sep {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Natural / Lab radio toggle */
+.radio-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.radio-pill {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.radio-pill input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.radio-pill span {
+  display: inline-block;
+  padding: 6px 18px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-muted);
+  transition: background 0.13s, border-color 0.13s, color 0.13s;
+  user-select: none;
+}
+
+.radio-pill input[type="radio"]:checked + span {
+  background: var(--gold-dim);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.radio-pill:hover span {
+  border-color: rgba(212, 168, 83, 0.45);
+  color: var(--text);
+}
+
+/* Filter actions group */
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+/* Reset Filters button */
+.btn-reset {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.btn-reset:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* Filter status line */
+.filter-status {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  padding: 4px 2px;
+  letter-spacing: 0.02em;
+}
+
+/* Search Diamonds button */
+.search-diamonds-btn {
+  background: linear-gradient(135deg, #e8c06a 0%, #c9953c 100%);
+  color: #0a0808;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 32px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  transition: opacity 0.15s, transform 0.12s, box-shadow 0.15s;
+  white-space: nowrap;
+  box-shadow: 0 2px 12px rgba(212, 168, 83, 0.3);
+  align-self: flex-end;
+}
+
+.search-diamonds-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(212, 168, 83, 0.4);
+}
+
+.search-diamonds-btn:active  { transform: translateY(0); box-shadow: none; }
+.search-diamonds-btn:disabled { opacity: 0.38; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* Full Catalog Scrape button — outlined gold style */
+.full-scrape-btn {
+  background: transparent;
+  color: var(--gold);
+  border: 1.5px solid var(--gold);
+  border-radius: 10px;
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  transition: background 0.15s, opacity 0.15s, transform 0.12s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+.full-scrape-btn:hover   { background: rgba(212,168,83,0.08); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(212,168,83,0.25); }
+.full-scrape-btn:active  { transform: translateY(0); box-shadow: none; }
+.full-scrape-btn:disabled { opacity: 0.38; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* Batch progress badge in the log header */
+.batch-status {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-variant-numeric: tabular-nums;
+  transition: border-color 0.2s, color 0.2s;
+}
+.batch-status.active { border-color: rgba(212,168,83,0.4); color: var(--gold); }
+
+/* ── Diamond table overrides (mirrors #table rules for #d-table) ─── */
+
+#d-table .tabulator {
+  border: none !important;
+  background: transparent !important;
+  font-family: 'Inter', sans-serif !important;
+  color: var(--text) !important;
+}
+
+#d-table .tabulator-header {
+  background: var(--surface-2) !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+
+#d-table .tabulator-col {
+  background: transparent !important;
+  border-right: 1px solid var(--border-subtle) !important;
+}
+
+#d-table .tabulator-col:last-child { border-right: none !important; }
+
+#d-table .tabulator-col-title {
+  font-weight: 600 !important;
+  font-size: 0.72rem !important;
+  color: var(--text-muted) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+}
+
+#d-table .tabulator-col.tabulator-sortable:hover { background: var(--gold-dim) !important; }
+
+#d-table .tabulator-row {
+  background: transparent !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  color: var(--text) !important;
+  transition: background 0.1s;
+}
+
+#d-table .tabulator-row:hover { background: rgba(212, 168, 83, 0.04) !important; }
+#d-table .tabulator-row.tabulator-row-even { background: transparent !important; }
+
+#d-table .tabulator-cell {
+  font-size: 0.9rem !important;
+  padding: 12px 14px !important;
+  color: var(--text) !important;
+  border-right: 1px solid var(--border-subtle) !important;
+}
+
+#d-table .tabulator-cell:last-child { border-right: none !important; }
+
+#d-table .tabulator-footer {
+  background: var(--surface-2) !important;
+  border-top: 1px solid var(--border-subtle) !important;
+  color: var(--text-muted) !important;
+}
+
+#d-table .tabulator-page {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border-subtle) !important;
+  color: var(--text-muted) !important;
+  border-radius: 6px !important;
+  margin: 0 2px !important;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+#d-table .tabulator-page:not(:disabled):hover {
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
+}
+
+#d-table .tabulator-page.active {
+  background: var(--gold-dim) !important;
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
+}
+
+#d-table .tabulator-page-size {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border-subtle) !important;
+  color: var(--text-muted) !important;
+  border-radius: 6px !important;
+}
+
 /* ── Utility ─────────────────────────────────────────────────────── */
 
 .hidden { display: none !important; }
@@ -646,4 +1035,9 @@ header p {
   .stats-row { grid-template-columns: repeat(2, 1fr); }
   .charts-bottom-row { grid-template-columns: 1fr; }
   .search-row { flex-direction: column; }
+  .filter-row--multi { grid-template-columns: 1fr; }
+  .filter-row--bottom { flex-direction: column; align-items: stretch; }
+  .filter-actions { flex-direction: column; }
+  .search-diamonds-btn, .btn-reset { width: 100%; }
+  .checkbox-grid { grid-template-columns: repeat(3, auto); }
 }
