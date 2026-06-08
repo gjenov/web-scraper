@@ -93,13 +93,18 @@ function getCheckedVals(name) {
   return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(el => el.value);
 }
 
+function getGroupVals(group) {
+  const btns = [...document.querySelectorAll(`.cb-group-pill[data-group="${group}"].selected`)];
+  return btns.flatMap(b => b.dataset.values.split(','));
+}
+
 // ── Client-side filtering ─────────────────────────────────────────────
 function applyFilters() {
   if (!masterData.length) return;
 
   const shapes    = getCheckedVals('d-shape').map(s => s.toLowerCase());
-  const colors    = getCheckedVals('d-color');
-  const claritys  = getCheckedVals('d-clarity');
+  const colors    = getGroupVals('color');
+  const claritys  = getGroupVals('clarity');
   const cuts      = getCheckedVals('d-cut');
   const type      = document.querySelector('input[name="d-type"]:checked')?.value || 'all';
   const caratFrom = parseFloat(document.getElementById('d-carat-from').value) || null;
@@ -135,8 +140,15 @@ function applyFilters() {
 
 // Wire every filter input to applyFilters
 document.querySelectorAll(
-  'input[name="d-shape"], input[name="d-color"], input[name="d-clarity"], input[name="d-cut"], input[name="d-type"]'
+  'input[name="d-shape"], input[name="d-cut"], input[name="d-type"]'
 ).forEach(el => el.addEventListener('change', applyFilters));
+
+document.querySelectorAll('.cb-group-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.classList.toggle('selected');
+    applyFilters();
+  });
+});
 
 ['d-carat-from', 'd-carat-to', 'd-price-from', 'd-price-to'].forEach(id => {
   document.getElementById(id)?.addEventListener('input', applyFilters);
@@ -146,9 +158,8 @@ dSearchInput.addEventListener('input', applyFilters);
 
 // Reset all filters → show full masterData
 dResetBtn.addEventListener('click', () => {
-  document.querySelectorAll(
-    'input[name="d-shape"], input[name="d-color"], input[name="d-clarity"], input[name="d-cut"]'
-  ).forEach(el => { el.checked = false; });
+  document.querySelectorAll('input[name="d-shape"], input[name="d-cut"]').forEach(el => { el.checked = false; });
+  document.querySelectorAll('.cb-group-pill').forEach(btn => btn.classList.remove('selected'));
   document.querySelector('input[name="d-type"][value="all"]').checked = true;
   ['d-carat-from', 'd-carat-to', 'd-price-from', 'd-price-to'].forEach(id => {
     const el = document.getElementById(id);
@@ -508,8 +519,8 @@ dFullScrapeBtn.addEventListener('click', startFullScrape);
 function buildScrapeParams() {
   return {
     shape:     getCheckedVals('d-shape').join(','),
-    color:     getCheckedVals('d-color').join(','),
-    clarity:   getCheckedVals('d-clarity').join(','),
+    color:     getGroupVals('color').join(','),
+    clarity:   getGroupVals('clarity').join(','),
     cut:       getCheckedVals('d-cut').join(','),
     caratFrom: document.getElementById('d-carat-from').value,
     caratTo:   document.getElementById('d-carat-to').value,

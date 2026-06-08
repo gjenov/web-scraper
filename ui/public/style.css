@@ -770,6 +770,26 @@ header p {
   color: var(--text);
 }
 
+/* Group pill buttons (clarity, color ranges) */
+.cb-group-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  background: var(--surface-2);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.13s, border-color 0.13s, color 0.13s;
+  white-space: nowrap;
+  user-select: none;
+}
+.cb-group-pill:hover { border-color: rgba(212, 168, 83, 0.45); color: var(--text); }
+.cb-group-pill.selected { background: var(--gold-dim); border-color: var(--gold); color: var(--gold); }
+
 /* Carat range inputs */
 .range-inputs {
   display: flex;
