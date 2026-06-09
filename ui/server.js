@@ -284,6 +284,97 @@ app.get('/api/diamond-scrape-all', (req, res) => {
   req.on('close', () => { try { proc.kill(); } catch {} });
 });
 
+app.get('/api/diamond-matrix', (req, res) => {
+  const { shape, caratFrom, caratTo, color, clarity, cut, type } = req.query;
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const send = (event, data) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (res.flush) res.flush();
+  };
+
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+
+  const timestamp = Date.now();
+  const outputPath = path.join(OUTPUT_DIR, `diamonds_bluenile_matrix_${timestamp}.csv`);
+
+  const args = ['-u', 'diamond_main.py', '--output', outputPath, '--matrix-scrape'];
+  if (shape)   args.push('--shape',   ...shape.split(',').map(s => s.trim()).filter(Boolean));
+  if (caratFrom) args.push('--carat-from', caratFrom);
+  if (caratTo)   args.push('--carat-to',   caratTo);
+  if (color)   args.push('--color',   ...color.split(',').map(s => s.trim()).filter(Boolean));
+  if (clarity) args.push('--clarity', ...clarity.split(',').map(s => s.trim()).filter(Boolean));
+  if (cut)     args.push('--cut',     ...cut.split(',').map(s => s.trim()).filter(Boolean));
+  if (type)    args.push('--type',    type);
+
+  send('progress', { message: 'Starting price matrix scrape...' });
+  if (shape)   send('progress', { message: `Shapes: ${shape}` });
+  if (cut)     send('progress', { message: `Cut: ${cut}` });
+  send('progress', { message: `Type: ${type || 'natural'}` });
+
+  const proc = spawn(PYTHON, args, { cwd: SCRAPER_DIR });
+
+  proc.stdout.on('data', (chunk) => {
+    chunk.toString().split('\n').filter(l => l.trim()).forEach(line => {
+      const m = line.match(/^MATRIX:(\d+)\/(\d+)/);
+      if (m) {
+        send('matrix-progress', { message: line, done: parseInt(m[1]), total: parseInt(m[2]) });
+      } else {
+        send('progress', { message: line });
+      }
+    });
+  });
+
+  proc.stderr.on('data', (chunk) => {
+    chunk.toString().split('\n').filter(l => l.trim()).forEach(line => {
+      send('progress', { message: line, isError: true });
+    });
+  });
+
+  proc.on('close', (code) => {
+    if (code !== 0 || !fs.existsSync(outputPath)) {
+      send('error', { message: 'Price matrix scrape failed. Check parameters and try again.' });
+      return res.end();
+    }
+
+    try {
+      const csvText = fs.readFileSync(outputPath, 'utf8');
+      const records = parse(csvText, { columns: true, skip_empty_lines: true });
+      records.forEach(r => {
+        r.price = parseFloat(r.price);
+        r.carat = parseFloat(r.carat);
+      });
+
+      const filename = path.basename(outputPath);
+      const parts = [
+        shape   ? `Shapes: ${shape}` : 'All Shapes',
+        cut     ? `Cut: ${cut}`      : null,
+        `Type: ${type || 'natural'} | Price Matrix`,
+      ].filter(Boolean);
+      fs.writeFileSync(outputPath + '.meta.json', JSON.stringify({
+        url: parts.join(' | '),
+        siteName: 'diamonds_bluenile_matrix',
+        searchParams: { shape, color, clarity, cut, type },
+      }));
+
+      send('complete', {
+        products: records,
+        downloadUrl: `/download/${filename}`,
+        siteName: 'diamonds_bluenile_matrix',
+      });
+    } catch (e) {
+      send('error', { message: 'Failed to parse results: ' + e.message });
+    }
+    res.end();
+  });
+
+  req.on('close', () => { try { proc.kill(); } catch {} });
+});
+
 app.get('/api/results', (req, res) => {
   if (!fs.existsSync(OUTPUT_DIR)) return res.json([]);
   try {

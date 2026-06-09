@@ -45,6 +45,31 @@ _EMPTY_COLS = [
     'price', 'stock_id', 'url',
 ]
 
+# ── Matrix scrape dimensions (fixed to match UI buttons) ──────────────
+MATRIX_CARAT_PRESETS = [
+    (1.00, 1.15, '1ct'),  (1.25, 1.35, '1.25ct'), (1.50, 1.75, '1.5ct'),
+    (2.00, 2.25, '2ct'),  (2.50, 2.75, '2.5ct'),  (3.00, 3.25, '3ct'),
+    (4.00, 4.25, '4ct'),  (5.00, 5.25, '5ct'),
+]
+MATRIX_COLOR_GROUPS = [
+    ('D,E,F',              'D-F'),
+    ('G,H',                'G-H'),
+    ('I,J',                'I-J'),
+    ('K,L,M',              'K-M'),
+    ('N,O,P,Q,R',          'N-R'),
+    ('S,T,U,V,W,X,Y,Z',    'S-Z'),
+]
+MATRIX_CLARITY_GROUPS = [
+    ('FL,IF',      'FL-IF'),
+    ('VVS1,VVS2',  'VVS1-2'),
+    ('VS1,VS2',    'VS1-2'),
+    ('SI1',        'SI1'),
+    ('SI2',        'SI2'),
+    ('I1,I2,I3',   'I1-I3'),
+]
+_ALL_SHAPES = ['Round', 'Oval', 'Cushion', 'Princess', 'Emerald',
+               'Pear', 'Radiant', 'Marquise', 'Asscher', 'Heart']
+
 # The full searchByIDs GraphQL query (extracted from Blue Nile JS bundle)
 _GQL_QUERY = (
     'query ('
@@ -381,6 +406,124 @@ def _discover_buckets(session, req_headers, params, diamond_type, lo, hi, depth=
     left  = _discover_buckets(session, req_headers, params, diamond_type, lo,     mid,    depth + 1)
     right = _discover_buckets(session, req_headers, params, diamond_type, mid + 1, hi,    depth + 1)
     return left + right
+
+
+def _fetch_cheapest(session, req_headers, params, diamond_type):
+    """Single API call: fetch up to 25 items for the combo, return the cheapest row dict or None."""
+    variables = _build_variables(params, diamond_type, 1, 25)
+    try:
+        resp = session.post(
+            _API_URL,
+            json={'query': _GQL_QUERY, 'variables': variables},
+            headers=req_headers,
+            timeout=20,
+        )
+        if resp.status_code != 200:
+            return None
+        body = resp.json()
+        result = (body.get('data') or {}).get('searchByIDs') or {}
+        items = _flatten_items(result.get('items', []))
+        if not items:
+            return None
+        rows = [_extract_row(item, diamond_type) for item in items]
+        rows_priced = [(float(r['price']) if r['price'] != '' else float('inf'), r) for r in rows]
+        rows_priced.sort(key=lambda x: x[0])
+        return rows_priced[0][1]
+    except Exception:
+        return None
+    finally:
+        time.sleep(0.12)
+
+
+def scrape_matrix(params: dict, output_path: str) -> pd.DataFrame:
+    """Fetch the cheapest diamond for every shape×carat×color×clarity combination."""
+    diamond_type = params.get('diamond_type', 'natural')
+
+    if _HAS_CFFI:
+        session = cffi_req.Session(impersonate='chrome124')
+    else:
+        session = cffi_req.Session()
+
+    req_headers = {
+        'User-Agent':      _UA,
+        'Accept':          'application/json, */*',
+        'Content-Type':    'application/json',
+        'Referer':         'https://www.bluenile.com/diamonds',
+        'Origin':          'https://www.bluenile.com',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+    }
+
+    print('Warming session on homepage...', flush=True)
+    try:
+        session.get(
+            'https://www.bluenile.com/',
+            headers={**req_headers, 'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8'},
+            timeout=20,
+        )
+        time.sleep(0.8)
+    except Exception as e:
+        print(f'Warm-up: {e}', flush=True)
+
+    # Determine shapes: respect any selection, fall back to all
+    shape_input = params.get('shape', [])
+    if shape_input:
+        if isinstance(shape_input, list):
+            shapes = [s.strip() for item in shape_input for s in str(item).split(',') if s.strip()]
+        else:
+            shapes = [s.strip() for s in str(shape_input).split(',') if s.strip()]
+        shapes = [s for s in shapes if s in _SHAPE_IDS]
+    else:
+        shapes = []
+    if not shapes:
+        shapes = list(_ALL_SHAPES)
+
+    combos = [
+        (shape, carat, color, clarity)
+        for shape   in shapes
+        for carat   in MATRIX_CARAT_PRESETS
+        for color   in MATRIX_COLOR_GROUPS
+        for clarity in MATRIX_CLARITY_GROUPS
+    ]
+    total = len(combos)
+    print(
+        f'Price matrix: {len(shapes)} shape(s) × {len(MATRIX_CARAT_PRESETS)} carat × '
+        f'{len(MATRIX_COLOR_GROUPS)} color × {len(MATRIX_CLARITY_GROUPS)} clarity = {total} combinations',
+        flush=True,
+    )
+
+    rows = []
+    for idx, (shape, (c_lo, c_hi, c_label), (col_vals, col_label), (clar_vals, clar_label)) in enumerate(combos):
+        combo_params = dict(params)
+        combo_params['shape']      = shape
+        combo_params['carat_from'] = c_lo
+        combo_params['carat_to']   = c_hi
+        combo_params['color']      = col_vals
+        combo_params['clarity']    = clar_vals
+
+        row = _fetch_cheapest(session, req_headers, combo_params, diamond_type)
+        if row:
+            row['carat_label']   = c_label
+            row['color_group']   = col_label
+            row['clarity_group'] = clar_label
+            rows.append(row)
+
+        print(f'MATRIX:{idx + 1}/{total} — {shape} {c_label} {col_label} {clar_label}', flush=True)
+
+    if not rows:
+        print('No diamonds found.', flush=True)
+        return pd.DataFrame()
+
+    df = pd.DataFrame(rows)
+    df['price'] = pd.to_numeric(df['price'], errors='coerce')
+    df['carat'] = pd.to_numeric(df['carat'], errors='coerce')
+    df = df.sort_values(['shape', 'carat_label', 'color_group', 'clarity_group'], ignore_index=True)
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    df.to_csv(output_path, index=False)
+
+    print(f'Done — {len(df):,} combinations found', flush=True)
+    return df
 
 
 def scrape_all(params: dict, output_path: str, resume: bool = False) -> pd.DataFrame:

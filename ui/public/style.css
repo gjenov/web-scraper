@@ -982,6 +982,25 @@ header p {
 }
 .batch-status.active { border-color: rgba(212,168,83,0.4); color: var(--gold); }
 
+/* Price Matrix button — teal/silver accent */
+.matrix-btn {
+  background: transparent;
+  color: #9ec8dc;
+  border: 1.5px solid rgba(158, 200, 220, 0.45);
+  border-radius: 10px;
+  padding: 12px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  transition: background 0.15s, opacity 0.15s, transform 0.12s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+.matrix-btn:hover   { background: rgba(158,200,220,0.07); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(158,200,220,0.15); }
+.matrix-btn:active  { transform: translateY(0); box-shadow: none; }
+.matrix-btn:disabled { opacity: 0.38; cursor: not-allowed; transform: none; box-shadow: none; }
+
 /* ── Diamond table overrides (mirrors #table rules for #d-table) ─── */
 
 #d-table .tabulator {

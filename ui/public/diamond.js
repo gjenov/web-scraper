@@ -23,7 +23,9 @@ _tabBtns.forEach(btn => {
 // ── DOM refs ────────────────────────────────────────────────────────
 const dSearchBtn      = document.getElementById('d-search-btn');
 const dFullScrapeBtn  = document.getElementById('d-full-scrape-btn');
+const dMatrixBtn      = document.getElementById('d-matrix-btn');
 const dBatchStatus    = document.getElementById('d-batch-status');
+const dMatrixStatus   = document.getElementById('d-matrix-status');
 const dResetBtn       = document.getElementById('d-reset-btn');
 const dLogCard      = document.getElementById('d-log-card');
 const dLogEl        = document.getElementById('d-log');
@@ -450,12 +452,14 @@ dDownloadBtn.addEventListener('click', () => {
   dTable.download('csv', `diamonds_filtered_${Date.now()}.csv`);
 });
 
+function disableActionBtns()  { dSearchBtn.disabled = dFullScrapeBtn.disabled = dMatrixBtn.disabled = true; }
+function enableActionBtns()   { dSearchBtn.disabled = dFullScrapeBtn.disabled = dMatrixBtn.disabled = false; }
+
 // ── Full catalog scrape ───────────────────────────────────────────────
 function startFullScrape() {
   const p = buildScrapeParams();
 
-  dSearchBtn.disabled     = true;
-  dFullScrapeBtn.disabled = true;
+  disableActionBtns();
   dHide(dErrorCard);
   dHide(dResultsEl);
   dHide(dFilterStatus);
@@ -507,8 +511,7 @@ function startFullScrape() {
       dErrorMsg.textContent = 'Scrape complete — display error: ' + err.message + '. Load from history.';
       dShow(dErrorCard);
     } finally {
-      dSearchBtn.disabled     = false;
-      dFullScrapeBtn.disabled = false;
+      enableActionBtns();
     }
   });
 
@@ -527,13 +530,89 @@ function startFullScrape() {
       dErrorMsg.textContent = 'Connection lost. Please try again.';
       dShow(dErrorCard);
     } finally {
-      dSearchBtn.disabled     = false;
-      dFullScrapeBtn.disabled = false;
+      enableActionBtns();
     }
   });
 }
 
 dFullScrapeBtn.addEventListener('click', startFullScrape);
+
+// ── Price matrix scrape ───────────────────────────────────────────────
+function startMatrixScrape() {
+  const p = buildScrapeParams();
+
+  disableActionBtns();
+  dHide(dErrorCard);
+  dHide(dResultsEl);
+  dHide(dFilterStatus);
+  dLogEl.innerHTML = '';
+  dLogCount.textContent = '';
+  _dMaxCount = 0;
+  dLogSpinner.classList.remove('done');
+  dShow(dLogCard);
+  startDTimer();
+
+  dMatrixStatus.textContent = 'Building combos…';
+  dMatrixStatus.classList.add('active');
+  dShow(dMatrixStatus);
+
+  const qs = new URLSearchParams();
+  if (p.shape)   qs.set('shape',   p.shape);
+  if (p.cut)     qs.set('cut',     p.cut);
+  qs.set('type', p.type);
+
+  const es = new EventSource(`/api/diamond-matrix?${qs.toString()}`);
+
+  es.addEventListener('progress', e => {
+    const { message, isError } = JSON.parse(e.data);
+    appendDLog(message, isError);
+  });
+
+  es.addEventListener('matrix-progress', e => {
+    const { done, total } = JSON.parse(e.data);
+    dMatrixStatus.textContent = `${done.toLocaleString()} / ${total.toLocaleString()} combos`;
+    dLogCount.textContent = `${done.toLocaleString()} done`;
+  });
+
+  es.addEventListener('complete', e => {
+    es.close();
+    stopDTimer();
+    dLogSpinner.classList.add('done');
+    dMatrixStatus.classList.remove('active');
+    try {
+      const { products, downloadUrl: dl } = JSON.parse(e.data);
+      const filename = dl.replace('/download/', '');
+      products.forEach(r => { r.price = parseFloat(r.price); r.carat = parseFloat(r.carat); });
+      loadIntoMaster(products, filename);
+      loadDiamondHistory();
+    } catch (err) {
+      dErrorMsg.textContent = 'Matrix complete — display error: ' + err.message + '. Load from history.';
+      dShow(dErrorCard);
+    } finally {
+      enableActionBtns();
+    }
+  });
+
+  es.addEventListener('error', e => {
+    es.close();
+    stopDTimer();
+    dLogSpinner.classList.add('done');
+    dMatrixStatus.classList.remove('active');
+    try {
+      const { message } = JSON.parse(e.data);
+      dErrorMsg.textContent = message;
+      dShow(dErrorCard);
+    } catch {
+      if (!dResultsEl.classList.contains('hidden')) return;
+      dErrorMsg.textContent = 'Connection lost. Please try again.';
+      dShow(dErrorCard);
+    } finally {
+      enableActionBtns();
+    }
+  });
+}
+
+dMatrixBtn.addEventListener('click', startMatrixScrape);
 
 // ── Scrape ────────────────────────────────────────────────────────────
 function buildScrapeParams() {
@@ -554,7 +633,7 @@ function buildScrapeParams() {
 dSearchBtn.addEventListener('click', () => {
   const p = buildScrapeParams();
 
-  dSearchBtn.disabled = true;
+  disableActionBtns();
   dHide(dErrorCard);
   dHide(dResultsEl);
   dHide(dFilterStatus);
@@ -595,7 +674,7 @@ dSearchBtn.addEventListener('click', () => {
       dErrorMsg.textContent = 'Results loaded — display error: ' + err.message;
       dShow(dErrorCard);
     } finally {
-      dSearchBtn.disabled = false;
+      enableActionBtns();
     }
   });
 
@@ -612,7 +691,7 @@ dSearchBtn.addEventListener('click', () => {
       dErrorMsg.textContent = 'Connection lost. Please try again.';
       dShow(dErrorCard);
     } finally {
-      dSearchBtn.disabled = false;
+      enableActionBtns();
     }
   });
 });

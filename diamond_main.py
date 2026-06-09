@@ -18,8 +18,9 @@ def main():
     parser.add_argument('--type',       choices=['natural', 'lab'], default='natural',
                         dest='diamond_type')
     parser.add_argument('--output',      required=True)
-    parser.add_argument('--full-scrape', action='store_true', dest='full_scrape')
-    parser.add_argument('--resume',      action='store_true')
+    parser.add_argument('--full-scrape',   action='store_true', dest='full_scrape')
+    parser.add_argument('--resume',        action='store_true')
+    parser.add_argument('--matrix-scrape', action='store_true', dest='matrix_scrape')
     args = parser.parse_args()
 
     params = {
@@ -32,7 +33,9 @@ def main():
         'diamond_type': args.diamond_type,
     }
 
-    if args.full_scrape:
+    if args.matrix_scrape:
+        df = diamond_bluenile.scrape_matrix(params, args.output)
+    elif args.full_scrape:
         df = diamond_bluenile.scrape_all(params, args.output, resume=args.resume)
     else:
         df = diamond_bluenile.scrape(params)
